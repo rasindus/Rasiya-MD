@@ -395,7 +395,7 @@ async function connectToWA() {
   });
 }
 app.get("/", (req, res) => {
-  res.send("hey, ❤️𝐑_𝐎_𝐁_𝐈_𝐍❤️ started✅");
+  res.send("hey, ❤️R_A_S_I_Y_A❤️ started✅");
 });
 app.listen(port, () =>
   console.log(`Server listening on port http://localhost:${port}`)
