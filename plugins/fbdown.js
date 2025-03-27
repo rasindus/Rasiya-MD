@@ -60,12 +60,12 @@ cmd(
 
       // Prepare and send the message with video details
       let desc = `
-*❤️ ROBIN FB VIDEO DOWNLOADER ❤️*
+*❤️R_A_S_I_Y_A❤️ FB VIDEO DOWNLOADER ❤️*
 
 👻 *Title*: ${title || "Unknown"}
 👻 *Quality*: ${hd ? "HD Available" : "SD Only"}
 
-𝐌𝐚𝐝𝐞 𝐛𝐲 𝐒_𝐈_𝐇_𝐈_𝐋_𝐄_𝐋
+𝙼𝙰𝙳𝙴 𝙱𝚈 𝚁𝙰𝚂𝙸𝙽𝙳𝚄_®
         `;
       await robin.sendMessage(
         from,
@@ -99,7 +99,7 @@ cmd(
         return reply("*No downloadable video found!* 🌚");
       }
 
-      return reply("*Thanks for using my bot* 🌚❤️");
+      return reply("*Thanks for using ❤️R_A_S_I_Y_A❤️ bot* 🇱🇰");
     } catch (e) {
       console.error(e);
       reply(`*Error:* ${e.message || e}`);
