@@ -50,7 +50,7 @@ cmd(
       // Fetch video details
       reply("*Downloading your video...* 🌚❤️");
 
-      
+      const result = await getFbVideoInfo(q);
 
       if (!result || (!result.sd && !result.hd)) {
         return reply("*Failed to download video. Please try again later.* 🌚");
