@@ -41,13 +41,13 @@ cmd(
     }
   ) => {
     try {
-      if (!q) return reply("*Please provide a valid Facebook video URL!* 🌚❤️");
+      if (!q) return reply("*Please provide a valid Facebook video URL!(තේරෙන් නැත්තන් ට්‍රාන්ස්ලේට් කරල හරි බලන්න😒)* 🌚❤️");
 
       const fbRegex = /(https?:\/\/)?(www\.)?(facebook|fb)\.com\/.+/;
       if (!fbRegex.test(q))
         return reply("*Invalid Facebook URL! Please check and try again.* 🌚");
 
-      reply("*Downloading your video...* 🌚❤️");
+      reply("*Downloading your video...(පොඩ්ඩක් ඉවසන්න👻)* 🌚❤️");
 
       const result = await getFbVideoInfo(q);
 
@@ -69,7 +69,7 @@ cmd(
         from,
         {
           image: {
-            url: "https://raw.githubusercontent.com/Dark-Robin/Bot-Helper/refs/heads/main/autoimage/Bot%20fb-1.jpg",
+            url: "https://raw.githubusercontent.com/rasindus/My-md/refs/heads/main/openart-image_2YS3dL0-_1743089577184_raw.jpg",
           },
           caption: desc,
         },
