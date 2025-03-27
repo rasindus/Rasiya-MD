@@ -86,7 +86,7 @@ ${menu.search}
 
 🥶𝐌𝐚𝐝𝐞 𝐛𝐲 R_A_S_I_N_D_U🥶
 
-> ROBIN MENU MSG
+> RASIYA MENU MSG
 `;
       await robin.sendMessage(
         from,
