@@ -1,5 +1,6 @@
 const { cmd, commands } = require("../command");
-const getFbVideoInfo = require("fb-downloader-scrapper");
+//Potential fix, if default export.
+const getFbVideoInfo = require("fb-downloader-scrapper").default;
 
 cmd(
   {
@@ -42,12 +43,10 @@ cmd(
     try {
       if (!q) return reply("*Please provide a valid Facebook video URL!* 🌚❤️");
 
-      // Validate the Facebook URL format
       const fbRegex = /(https?:\/\/)?(www\.)?(facebook|fb)\.com\/.+/;
       if (!fbRegex.test(q))
         return reply("*Invalid Facebook URL! Please check and try again.* 🌚");
 
-      // Fetch video details
       reply("*Downloading your video...* 🌚❤️");
 
       const result = await getFbVideoInfo(q);
@@ -58,7 +57,6 @@ cmd(
 
       const { title, sd, hd } = result;
 
-      // Prepare and send the message with video details
       let desc = `
 *❤️R_A_S_I_Y_A❤️ FB VIDEO DOWNLOADER ❤️*
 
@@ -77,7 +75,7 @@ cmd(
         },
         { quoted: mek }
       );
-      // Send the video if available
+
       if (hd) {
         await robin.sendMessage(
           from,
