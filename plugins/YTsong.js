@@ -1,73 +1,124 @@
-const { cmd } = require("../command");
+const { cmd, commands } = require("../command");
 const yts = require("yt-search");
-const ytdl = require("ytdl-core");
-const fs = require("fs");
-const { promisify } = require("util");
-const pipeline = promisify(require("stream").pipeline);
+const { ytmp3 } = require("@vreden/youtube_scraper");
 
 cmd(
   {
     pattern: "song",
     react: "🎵",
-    desc: "YouTube සිට ගීත බාගන්න",
+    desc: "Download Song",
     category: "download",
     filename: __filename,
   },
-  async (robin, mek, m, { from, reply, q }) => {
+  async (
+    robin,
+    mek,
+    m,
+    {
+      from,
+      quoted,
+      body,
+      isCmd,
+      command,
+      args,
+      q,
+      isGroup,
+      sender,
+      senderNumber,
+      botNumber2,
+      botNumber,
+      pushname,
+      isMe,
+      isOwner,
+      groupMetadata,
+      groupName,
+      participants,
+      groupAdmins,
+      isBotAdmins,
+      isAdmins,
+      reply,
+    }
+  ) => {
     try {
-      if (!q) return reply("🎵 ගීතයේ නම හෝ YouTube ලින්ක් එකක් ඇතුළත් කරන්න");
+      if (!q) return reply("Please provide a song name or YouTube link ❤️");
 
-      // ගීතය සොයමින්
+      // Search for the video
       const search = await yts(q);
-      if (!search.videos.length) return reply("❌ ගීතය හමු නොවීය");
+      if (!search || !search.videos || search.videos.length === 0) {
+        return reply("No videos found for your query ❌");
+      }
 
-      const video = search.videos[0];
-      const url = video.url;
+      const data = search.videos[0];
+      if (!data || !data.url) {
+        return reply("Invalid video data received ❌");
+      }
 
-      // වීඩියෝ තොරතුරු එවන්න
-      const infoMsg = `
-🎧 ${video.title}  
-⏳ කාලය: ${video.timestamp}  
-👀 බැලූම්: ${video.views}  
-🔗 ලින්ක්: ${url}
+      const url = data.url;
+      console.log("Video URL:", url); // Debug log
 
-බාගැනීම ආරම්භ වී ඇත...
-      `;
-      await robin.sendMessage(from, { 
-        image: { url: video.thumbnail }, 
-        caption: infoMsg 
-      }, { quoted: mek });
+      // Song metadata description
+      let desc = `
+❤️ SONG DOWNLOADER ❤️
 
-      // ගීතය බාගන්න
-      const audioStream = ytdl(url, { 
-        filter: "audioonly",
-        quality: "highestaudio"
-      });
+🎵 Title: ${data.title || 'N/A'}
+📝 Description: ${data.description?.substring(0, 100) || 'N/A'}...
+⏱️ Duration: ${data.timestamp || 'N/A'}
+📅 Uploaded: ${data.ago || 'N/A'}
+👀 Views: ${data.views || 'N/A'}
+🔗 URL: ${data.url || 'N/A'}
 
-      // ගොනුවට සුරකින්න (optional)
-      const tempFile = ./temp/${Date.now()}.mp3;
-      await pipeline(
-        audioStream,
-        fs.createWriteStream(tempFile)
-      );
+Made with ❤️
+`;
 
-      // ගීතය එවන්න
+      // Send metadata thumbnail message
+      if (data.thumbnail) {
+        await robin.sendMessage(
+          from,
+          { image: { url: data.thumbnail }, caption: desc },
+          { quoted: mek }
+        );
+      } else {
+        await reply(desc);
+      }
+
+      // Download the audio
+      const quality = "128"; // Default quality
+      const songData = await ytmp3(url, quality);
+      
+      if (!songData || !songData.download || !songData.download.url) {
+        return reply("Failed to download audio ❌");
+      }
+
+      console.log("Download URL:", songData.download.url); // Debug log
+
+      // Validate song duration
+      if (data.timestamp) {
+        let durationParts = data.timestamp.split(":").map(Number);
+        let totalSeconds =
+          durationParts.length === 3
+            ? durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2]
+            : durationParts[0] * 60 + durationParts[1];
+
+        if (totalSeconds > 1800) {
+          return reply("⏱️ Audio limit is 30 minutes");
+        }
+      }
+
+      // Send audio file
       await robin.sendMessage(
         from,
         {
-          audio: fs.readFileSync(tempFile),
+          audio: { url: songData.download.url },
           mimetype: "audio/mpeg",
-          fileName: ${video.title}.mp3,
+          fileName: ${data.title || 'audio'}.mp3,
         },
         { quoted: mek }
       );
 
-      // තාවකාලික ගොනුව මකන්න
-      fs.unlinkSync(tempFile);
-
-    } catch (err) {
-      console.error("ගීත දෝෂය:", err);
-      reply(❌ error: ${err.message});
+      return reply("Enjoy your music! 🎧❤️");
+    } catch (e) {
+      console.error("Error in song command:", e);
+      reply('❌ Error: ${e.message}Please try again later.');
     }
   }
 );
