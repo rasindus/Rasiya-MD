@@ -4,9 +4,9 @@
   "description": "A WhatsApp bot created using Node.js",
   "main": "index.js",
   "scripts": {
-    "start": "pm2 start index.js --deep-monitoring --attach --name ❤️𝐑_𝐎_𝐁_𝐈_𝐍❤️",
-    "stop": "pm2 stop ❤️𝐑_𝐎_𝐁_𝐈_𝐍❤️",
-    "restart": "pm2 restart ❤️𝐑_𝐎_𝐁_𝐈_𝐍❤️"
+    "start": "pm2 start index.js --deep-monitoring --attach --name ❤️R_A_S_I_Y_A❤️",
+    "stop": "pm2 stop ❤️R_A_S_I_Y_A❤️",
+    "restart": "pm2 restart ❤️R_A_S_I_Y_A❤️"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.9",
@@ -27,6 +27,6 @@
     "mongoose": "^8.9.4",
     "fb-downloader-scrapper": "^2.0.0",
     "canvas": "^3.0.1",
-    "youtubedl-core": "^4.11.7"
+    "@vreden/youtube_scraper": "^1.2.7"
   }
 }
