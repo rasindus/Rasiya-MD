@@ -40,68 +40,47 @@ cmd(
     }
   ) => {
     try {
-      if (!q) return reply("Please provide a song name or YouTube link ❤️");
+      if (!q) return reply("*නමක් හරි ලින්ක් එකක් හරි දෙන්න* 🌚❤️");
 
       // Search for the video
       const search = await yts(q);
-      if (!search || !search.videos || search.videos.length === 0) {
-        return reply("No videos found for your query ❌");
-      }
-
       const data = search.videos[0];
-      if (!data || !data.url) {
-        return reply("Invalid video data received ❌");
-      }
-
       const url = data.url;
-      console.log("Video URL:", url); // Debug log
 
       // Song metadata description
       let desc = `
-❤️ SONG DOWNLOADER ❤️
+*❤️R_A_S_I_Y_A❤️ SONG DOWNLOADER❤️*
 
-🎵 Title: ${data.title || 'N/A'}
-📝 Description: ${data.description?.substring(0, 100) || 'N/A'}...
-⏱️ Duration: ${data.timestamp || 'N/A'}
-📅 Uploaded: ${data.ago || 'N/A'}
-👀 Views: ${data.views || 'N/A'}
-🔗 URL: ${data.url || 'N/A'}
+👻 *title* : ${data.title}
+👻 *description* : ${data.description}
+👻 *time* : ${data.timestamp}
+👻 *ago* : ${data.ago}
+👻 *views* : ${data.views}
+👻 *url* : ${data.url}
 
-Made with ❤️
+Made by rasindu❤️
 `;
 
       // Send metadata thumbnail message
-      if (data.thumbnail) {
-        await robin.sendMessage(
-          from,
-          { image: { url: data.thumbnail }, caption: desc },
-          { quoted: mek }
-        );
-      } else {
-        await reply(desc);
-      }
+      await robin.sendMessage(
+        from,
+        { image: { url: data.thumbnail }, caption: desc },
+        { quoted: mek }
+      );
 
-      // Download the audio
+      // Download the audio using @vreden/youtube_scraper
       const quality = "128"; // Default quality
       const songData = await ytmp3(url, quality);
-      
-      if (!songData || !songData.download || !songData.download.url) {
-        return reply("Failed to download audio ❌");
-      }
 
-      console.log("Download URL:", songData.download.url); // Debug log
+      // Validate song duration (limit: 30 minutes)
+      let durationParts = data.timestamp.split(":").map(Number);
+      let totalSeconds =
+        durationParts.length === 3
+          ? durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2]
+          : durationParts[0] * 60 + durationParts[1];
 
-      // Validate song duration
-      if (data.timestamp) {
-        let durationParts = data.timestamp.split(":").map(Number);
-        let totalSeconds =
-          durationParts.length === 3
-            ? durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2]
-            : durationParts[0] * 60 + durationParts[1];
-
-        if (totalSeconds > 1800) {
-          return reply("⏱️ Audio limit is 30 minutes");
-        }
+      if (totalSeconds > 1800) {
+        return reply("⏱️ audio limit is 30 minitues");
       }
 
       // Send audio file
@@ -110,15 +89,26 @@ Made with ❤️
         {
           audio: { url: songData.download.url },
           mimetype: "audio/mpeg",
-          fileName: ${songData.title || 'audio'}.mp3,
         },
         { quoted: mek }
       );
 
-      return reply("Enjoy your music! 🎧❤️");
+      // Send as a document (optional)
+      await robin.sendMessage(
+        from,
+        {
+          document: { url: songData.download.url },
+          mimetype: "audio/mpeg",
+          fileName: `${data.title}.mp3`,
+          caption: "𝐌𝐚𝐝𝐞 𝐛𝐲 ❤️R_A_S_I_Y_A❤️",
+        },
+        { quoted: mek }
+      );
+
+      return reply("*Thanks for using my bot* 🌚❤️");
     } catch (e) {
-      console.error("Error in song command:", e);
-      reply('❌ Error: ${e.message}Please try again later.');
+      console.log(e);
+      reply(`❌ Error: ${e.message}`);
     }
   }
 );
