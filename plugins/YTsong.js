@@ -110,7 +110,7 @@ Made with ❤️
         {
           audio: { url: songData.download.url },
           mimetype: "audio/mpeg",
-          fileName: ${data.title || 'audio'}.mp3,
+          fileName: ${songData.title || 'audio'}.mp3,
         },
         { quoted: mek }
       );
