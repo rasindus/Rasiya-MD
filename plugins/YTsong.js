@@ -1,114 +1,73 @@
-const { cmd, commands } = require("../command");
+const { cmd } = require("../command");
 const yts = require("yt-search");
-const { ytmp3 } = require("@vreden/youtube_scraper");
+const ytdl = require("ytdl-core");
+const fs = require("fs");
+const { promisify } = require("util");
+const pipeline = promisify(require("stream").pipeline);
 
 cmd(
   {
     pattern: "song",
     react: "🎵",
-    desc: "Download Song",
+    desc: "YouTube සිට ගීත බාගන්න",
     category: "download",
     filename: __filename,
   },
-  async (
-    robin,
-    mek,
-    m,
-    {
-      from,
-      quoted,
-      body,
-      isCmd,
-      command,
-      args,
-      q,
-      isGroup,
-      sender,
-      senderNumber,
-      botNumber2,
-      botNumber,
-      pushname,
-      isMe,
-      isOwner,
-      groupMetadata,
-      groupName,
-      participants,
-      groupAdmins,
-      isBotAdmins,
-      isAdmins,
-      reply,
-    }
-  ) => {
+  async (robin, mek, m, { from, reply, q }) => {
     try {
-      if (!q) return reply("*නමක් හරි ලින්ක් එකක් හරි දෙන්න* 🌚❤️");
+      if (!q) return reply("🎵 ගීතයේ නම හෝ YouTube ලින්ක් එකක් ඇතුළත් කරන්න");
 
-      // Search for the video
+      // ගීතය සොයමින්
       const search = await yts(q);
-      const data = search.videos[0];
-      const url = data.url;
+      if (!search.videos.length) return reply("❌ ගීතය හමු නොවීය");
 
-      // Song metadata description
-      let desc = `
-*❤️R_A_S_I_Y_A❤️ SONG DOWNLOADER❤️*
+      const video = search.videos[0];
+      const url = video.url;
 
-👻 *title* : ${data.title}
-👻 *description* : ${data.description}
-👻 *time* : ${data.timestamp}
-👻 *ago* : ${data.ago}
-👻 *views* : ${data.views}
-👻 *url* : ${data.url}
+      // වීඩියෝ තොරතුරු එවන්න
+      const infoMsg = `
+🎧 ${video.title}  
+⏳ කාලය: ${video.timestamp}  
+👀 බැලූම්: ${video.views}  
+🔗 ලින්ක්: ${url}
 
-Made by rasindu❤️
-`;
+බාගැනීම ආරම්භ වී ඇත...
+      `;
+      await robin.sendMessage(from, { 
+        image: { url: video.thumbnail }, 
+        caption: infoMsg 
+      }, { quoted: mek });
 
-      // Send metadata thumbnail message
-      await robin.sendMessage(
-        from,
-        { image: { url: data.thumbnail }, caption: desc },
-        { quoted: mek }
+      // ගීතය බාගන්න
+      const audioStream = ytdl(url, { 
+        filter: "audioonly",
+        quality: "highestaudio"
+      });
+
+      // ගොනුවට සුරකින්න (optional)
+      const tempFile = ./temp/${Date.now()}.mp3;
+      await pipeline(
+        audioStream,
+        fs.createWriteStream(tempFile)
       );
 
-      // Download the audio using @vreden/youtube_scraper
-      const quality = "128"; // Default quality
-      const songData = await ytmp3(url, quality);
-
-      // Validate song duration (limit: 30 minutes)
-      let durationParts = data.timestamp.split(":").map(Number);
-      let totalSeconds =
-        durationParts.length === 3
-          ? durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2]
-          : durationParts[0] * 60 + durationParts[1];
-
-      if (totalSeconds > 1800) {
-        return reply("⏱️ audio limit is 30 minitues");
-      }
-
-      // Send audio file
+      // ගීතය එවන්න
       await robin.sendMessage(
         from,
         {
-          audio: { url: songData.download.url },
+          audio: fs.readFileSync(tempFile),
           mimetype: "audio/mpeg",
+          fileName: ${video.title}.mp3,
         },
         { quoted: mek }
       );
 
-      // Send as a document (optional)
-      await robin.sendMessage(
-        from,
-        {
-          document: { url: songData.download.url },
-          mimetype: "audio/mpeg",
-          fileName: `${data.title}.mp3`,
-          caption: "𝐌𝐚𝐝𝐞 𝐛𝐲 ❤️R_A_S_I_Y_A❤️",
-        },
-        { quoted: mek }
-      );
+      // තාවකාලික ගොනුව මකන්න
+      fs.unlinkSync(tempFile);
 
-      return reply("*Thanks for using my bot* 🌚❤️");
-    } catch (e) {
-      console.log(e);
-      reply(`❌ Error: ${e.message}`);
+    } catch (err) {
+      console.error("ගීත දෝෂය:", err);
+      reply(❌ error: ${err.message});
     }
   }
 );
