@@ -10,12 +10,7 @@ cmd(
     category: "download",
     filename: __filename,
   },
-  async (
-    robin,
-    mek,
-    m,
-    { from, q, reply }
-  ) => {
+  async (robin, mek, m, { from, q, reply }) => {
     try {
       if (!q) return reply("*නමක් හරි ලින්ක් එකක් හරි දෙන්න* 🌚❤️");
 
@@ -46,50 +41,55 @@ cmd(
       );
 
       const quality = "128";
-      const songData = await ytmp3(url, quality);
+      try {
+        const songData = await ytmp3(url, quality);
 
-      if (!songData || !songData.download || !songData.download.url) {
-        return reply("❌ Failed to download the song. Please try again later.");
-      }
-
-      let durationParts = data.timestamp.split(":").map(Number);
-
-      if (durationParts && durationParts.length > 0) {
-        let totalSeconds =
-          durationParts.length === 3
-            ? durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2]
-            : durationParts[0] * 60 + durationParts[1];
-
-        if (totalSeconds > 1800) {
-          return reply("⏱️ audio limit is 30 minutes");
+        if (!songData || !songData.download || !songData.download.url) {
+          return reply("❌ Failed to download the song. Please try again later.");
         }
-      } else {
-        return reply("❌ Error getting song duration");
+
+        let durationParts = data.timestamp.split(":").map(Number);
+
+        if (durationParts && durationParts.length > 0) {
+          let totalSeconds =
+            durationParts.length === 3
+              ? durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2]
+              : durationParts[0] * 60 + durationParts[1];
+
+          if (totalSeconds > 1800) {
+            return reply("⏱️ audio limit is 30 minutes");
+          }
+        } else {
+          return reply("❌ Error getting song duration");
+        }
+
+        await robin.sendMessage(
+          from,
+          {
+            audio: { url: songData.download.url },
+            mimetype: "audio/mpeg",
+          },
+          { quoted: mek }
+        );
+
+        await robin.sendMessage(
+          from,
+          {
+            document: { url: songData.download.url },
+            mimetype: "audio/mpeg",
+            fileName: `${data.title}.mp3`,
+            caption: "𝐌𝐚𝐝𝐞 𝐛𝐲 ❤️R_A_S_I_Y_A❤️",
+          },
+          { quoted: mek }
+        );
+
+        return reply("*Thanks for using my bot* 🌚❤️");
+      } catch (ytmp3Error) {
+        console.error("ytmp3 download error:", ytmp3Error);
+        return reply("❌ Failed to download the song due to an internal error.");
       }
-
-      await robin.sendMessage(
-        from,
-        {
-          audio: { url: songData.download.url },
-          mimetype: "audio/mpeg",
-        },
-        { quoted: mek }
-      );
-
-      await robin.sendMessage(
-        from,
-        {
-          document: { url: songData.download.url },
-          mimetype: "audio/mpeg",
-          fileName: `${data.title}.mp3`,
-          caption: "𝐌𝐚𝐝𝐞 𝐛𝐲 ❤️R_A_S_I_Y_A❤️",
-        },
-        { quoted: mek }
-      );
-
-      return reply("*Thanks for using my bot* 🌚❤️");
     } catch (e) {
-      console.error("Error in song command:", e); // Log the error for debugging
+      console.error("Error in song command:", e);
       reply(`❌ Error: ${e.message}`);
     }
   }
