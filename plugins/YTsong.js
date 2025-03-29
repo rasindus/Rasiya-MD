@@ -1,6 +1,9 @@
 const { cmd, commands } = require("../command");
-const yts = require("yt-search");
-const { ytmp3 } = require("@vreden/youtube_scraper");
+const axios = require("axios");
+const ytdl = require("ytdl-core");
+
+// Replace with your actual YouTube API key
+const YOUTUBE_API_KEY = "AIzaSyCL6pud2G9hnXPRCVfuDzktHCEywi5JqcU";
 
 cmd(
   {
@@ -14,20 +17,44 @@ cmd(
     try {
       if (!q) return reply("*නමක් හරි ලින්ක් එකක් හරි දෙන්න* 🌚❤️");
 
-      const search = await yts(q);
-      if (!search.videos || search.videos.length === 0) {
-        return reply("❌ No results found for your search.");
+      let videoInfo;
+      let isUrl = false;
+
+      // Check if input is a YouTube URL
+      if (ytdl.validateURL(q)) {
+        isUrl = true;
+        videoInfo = await ytdl.getInfo(q);
+      } else {
+        // Search using YouTube API
+        const searchResponse = await axios.get(
+          `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${encodeURIComponent(q)}&key=${YOUTUBE_API_KEY}`
+        );
+
+        if (!searchResponse.data.items || searchResponse.data.items.length === 0) {
+          return reply("❌ No results found for your search.");
+        }
+
+        const videoId = searchResponse.data.items[0].id.videoId;
+        videoInfo = await ytdl.getInfo(`https://www.youtube.com/watch?v=${videoId}`);
       }
-      const data = search.videos[0];
-      const url = data.url;
+
+      const data = {
+        title: videoInfo.videoDetails.title,
+        description: videoInfo.videoDetails.description,
+        timestamp: videoInfo.videoDetails.lengthSeconds,
+        ago: videoInfo.videoDetails.uploadDate,
+        views: videoInfo.videoDetails.viewCount,
+        url: videoInfo.videoDetails.video_url,
+        thumbnail: videoInfo.videoDetails.thumbnails[0].url
+      };
 
       let desc = `
 *❤️R_A_S_I_Y_A❤️ SONG DOWNLOADER❤️*
 
 👻 *title* : ${data.title}
-👻 *description* : ${data.description}
-👻 *time* : ${data.timestamp}
-👻 *ago* : ${data.ago}
+👻 *description* : ${data.description.substring(0, 100)}...
+👻 *duration* : ${formatDuration(data.timestamp)}
+👻 *uploaded* : ${data.ago}
 👻 *views* : ${data.views}
 👻 *url* : ${data.url}
 
@@ -40,57 +67,44 @@ cmd(
         { quoted: mek }
       );
 
-      const quality = "128";
-      try {
-        const songData = await ytmp3(url, quality);
-
-        if (!songData || !songData.download || !songData.download.url) {
-          return reply("❌ Failed to download the song. Please try again later.");
-        }
-
-        let durationParts = data.timestamp.split(":").map(Number);
-
-        if (durationParts && durationParts.length > 0) {
-          let totalSeconds =
-            durationParts.length === 3
-              ? durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2]
-              : durationParts[0] * 60 + durationParts[1];
-
-          if (totalSeconds > 1800) {
-            return reply("⏱️ audio limit is 30 minutes");
-          }
-        } else {
-          return reply("❌ Error getting song duration");
-        }
-
-        await robin.sendMessage(
-          from,
-          {
-            audio: { url: songData.download.url },
-            mimetype: "audio/mpeg",
-          },
-          { quoted: mek }
-        );
-
-        await robin.sendMessage(
-          from,
-          {
-            document: { url: songData.download.url },
-            mimetype: "audio/mpeg",
-            fileName: `${data.title}.mp3`,
-            caption: "𝐌𝐚𝐝𝐞 𝐛𝐲 ❤️R_A_S_I_Y_A❤️",
-          },
-          { quoted: mek }
-        );
-
-        return reply("*Thanks for using my bot* 🌚❤️");
-      } catch (ytmp3Error) {
-        console.error("ytmp3 download error:", ytmp3Error);
-        return reply("❌ Failed to download the song due to an internal error.");
+      // Check duration limit (30 minutes = 1800 seconds)
+      if (parseInt(data.timestamp) > 1800) {
+        return reply("⏱️ audio limit is 30 minutes");
       }
+
+      // Get audio stream
+      const audioStream = ytdl(data.url, {
+        filter: "audioonly",
+        quality: "highestaudio"
+      });
+
+      await robin.sendMessage(
+        from,
+        {
+          audio: { stream: audioStream },
+          mimetype: "audio/mpeg",
+        },
+        { quoted: mek }
+      );
+
+      return reply("*Thanks for using my bot* 🌚❤️");
+
     } catch (e) {
       console.error("Error in song command:", e);
       reply(`❌ Error: ${e.message}`);
     }
   }
 );
+
+// Helper function to format seconds into HH:MM:SS
+function formatDuration(seconds) {
+  seconds = parseInt(seconds);
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  
+  return [hours, minutes, secs]
+    .map(v => v < 10 ? "0" + v : v)
+    .filter((v, i) => v !== "00" || i > 0)
+    .join(":");
+}
