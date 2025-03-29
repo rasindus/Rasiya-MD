@@ -1,130 +1,148 @@
-const { cmd, commands } = require("../command");
-const yts = require("yt-search");
-const { ytmp3 } = require("@vreden/youtube_scraper");
+const { cmd } = require("../command");
+const ytdl = require('ytdl-core');
+const fs = require('fs');
+const ffmpeg = require('fluent-ffmpeg');
+const axios = require('axios');
 
 cmd(
   {
     pattern: "song",
-    react: "🎵",
-    desc: "Download Song",
-    category: "download",
+    react: "🎼",
+    desc: "Download songs with complete metadata preview",
+    category: "music",
     filename: __filename,
   },
-  async (
-    robin,
-    mek,
-    m,
-    {
-      from,
-      quoted,
-      body,
-      isCmd,
-      command,
-      args,
-      q,
-      isGroup,
-      sender,
-      senderNumber,
-      botNumber2,
-      botNumber,
-      pushname,
-      isMe,
-      isOwner,
-      groupMetadata,
-      groupName,
-      participants,
-      groupAdmins,
-      isBotAdmins,
-      isAdmins,
-      reply,
-    }
-  ) => {
+  async (robin, mek, m, { from, q, reply }) => {
     try {
-      if (!q) return reply("*නමක් හරි ලින්ක් එකක් හරි දෙන්න* 🌚❤️");
-
-      // Search for the video
-      const search = await yts(q);
-      if (!search || !search.videos || search.videos.length === 0) {
-        return reply("*සෙවුමට ගැලපෙන වීඩියෝවක් හමු නොවීය* ❌");
+      // 1. Check user input
+      if (!q) {
+        return await robin.sendMessage(from, {
+          text: `🎵 *Rasiya Music Bot* 🎵\n\nගීතයේ නම හෝ YouTube ලින්ක් එක ඇතුළත් කරන්න\nඋදා: *!song Shape of You - Ed Sheeran*`,
+          footer: "Rasiya Bot © 2024",
+          buttons: [
+            { buttonId: `${prefix}help song`, buttonText: { displayText: "🆘 උදව්" }, type: 1 }
+          ]
+        }, { quoted: mek });
       }
 
-      const data = search.videos[0];
-      if (!data || !data.url) {
-        return reply("*වීඩියෝ දත්ත ලබා ගැනීමට අපොහොසත් විය* ❌");
-      }
+      // 2. Show searching status
+      const searchMsg = await robin.sendMessage(from, {
+        text: `🔍 *Rasiya Bot* "${q}" සඳහා සොයමින්...`,
+        footer: "කරුණාකර රැඳී සිටින්න..."
+      }, { quoted: mek });
 
-      const url = data.url;
-      const quality = "128"; // Default quality
+      // 3. Get video info with full metadata
+      const info = await ytdl.getInfo(ytdl.validateURL(q) ? q : await searchYoutube(q));
+      const { 
+        title, 
+        author, 
+        lengthSeconds, 
+        viewCount, 
+        uploadDate,
+        video_url,
+        thumbnails
+      } = info.videoDetails;
 
-      // Song metadata description
-      let desc = `
-*❤️R_A_S_I_Y_A❤️ SONG DOWNLOADER❤️*
+      const thumbnail = thumbnails[thumbnails.length - 1].url;
 
-👻 *title* : ${data.title || "N/A"}
-👻 *description* : ${data.description || "N/A"}
-👻 *time* : ${data.timestamp || "N/A"}
-👻 *ago* : ${data.ago || "N/A"}
-👻 *views* : ${data.views || "N/A"}
-👻 *url* : ${data.url}
+      // 4. Format metadata
+      const duration = formatTime(lengthSeconds);
+      const views = formatViews(viewCount);
+      const upload = formatDate(uploadDate);
+      const artist = author.name || "Unknown Artist";
 
-Made by rasindu❤️
-`;
+      // 5. Send rich media card with all details
+      await robin.sendMessage(from, {
+        image: { url: thumbnail },
+        caption: `✨ *Rasiya Music Player* ✨\n\n` +
+                 `🎵 *${title}*\n` +
+                 `👤 ${artist}\n\n` +
+                 `⏱️ *Duration:* ${duration}\n` +
+                 `👀 *Views:* ${views}\n` +
+                 `📅 *Uploaded:* ${upload}\n\n` +
+                 `🔗 *YouTube Link:*\n${video_url}\n\n` +
+                 `_ප්‍රමාණවත් තරම් තොරතුරු ලබා ගැනීමට ගීතය බාගන්න..._`,
+        footer: "Rasiya Bot - Premium Music Experience",
+        buttons: [
+          { buttonId: `${prefix}download ${info.videoDetails.videoId}`, buttonText: { displayText: "⬇️ Download" }, type: 1 },
+          { buttonId: `${prefix}lyrics ${title}`, buttonText: { displayText: "📜 Lyrics" }, type: 1 }
+        ]
+      }, { quoted: mek });
 
-      // Send metadata thumbnail message
-      await robin.sendMessage(
-        from,
-        { 
-          image: { url: data.thumbnail || "https://i.ytimg.com/vi/default.jpg" }, 
-          caption: desc 
-        },
-        { quoted: mek }
-      );
+      // 6. Download and process audio
+      const tempFile = `./temp_${Date.now()}.mp3`;
+      await new Promise((resolve, reject) => {
+        ytdl(video_url, { quality: 'highestaudio' })
+          .pipe(fs.createWriteStream(tempFile))
+          .on('finish', resolve)
+          .on('error', reject);
+      });
 
-      // Download the audio
-      const songData = await ytmp3(url, quality);
-      if (!songData || !songData.download || !songData.download.url) {
-        return reply("*ඔඩියෝ බාගත කිරීමට අපොහොසත් විය* ❌");
-      }
-
-      // Validate song duration (limit: 30 minutes)
-      if (data.timestamp) {
-        let durationParts = data.timestamp.split(":").map(Number);
-        let totalSeconds =
-          durationParts.length === 3
-            ? durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2]
-            : durationParts[0] * 60 + durationParts[1];
-
-        if (totalSeconds > 1800) {
-          return reply("⏱️ audio limit is 30 minutes");
+      // 7. Send audio with metadata
+      await robin.sendMessage(from, {
+        audio: fs.readFileSync(tempFile),
+        mimetype: 'audio/mpeg',
+        fileName: `${title}.mp3`,
+        contextInfo: {
+          externalAdReply: {
+            title: title,
+            body: `By ${artist} | ${views} views`,
+            thumbnail: await downloadImage(thumbnail),
+            mediaType: 2,
+            sourceUrl: video_url
+          }
         }
-      }
+      }, { quoted: mek });
 
-      // Send audio file
-      await robin.sendMessage(
-        from,
-        {
-          audio: { url: songData.download.url },
-          mimetype: "audio/mpeg",
-        },
-        { quoted: mek }
-      );
+      // 8. Cleanup
+      fs.unlinkSync(tempFile);
+      await robin.sendMessage(from, { delete: searchMsg.key });
+      await reply(`✅ *${title}* successfully downloaded!\nEnjoy your music with Rasiya Bot 🎧`);
 
-      // Send as a document (optional)
-      await robin.sendMessage(
-        from,
-        {
-          document: { url: songData.download.url },
-          mimetype: "audio/mpeg",
-          fileName: `${(data.title || "audio").replace(/[^\w\s]/gi, '')}.mp3`,
-          caption: "𝐌𝐚𝐝𝐞 𝐛𝐲 ❤️R_A_S_I_Y_A❤️",
-        },
-        { quoted: mek }
-      );
-
-      return reply("*Thanks for using my bot* 🌚❤️");
-    } catch (e) {
-      console.error("Song download error:", e);
-      reply(`❌ දෝෂය: ${e.message || "Unknown error occurred"}`);
+    } catch (error) {
+      console.error('Error:', error);
+      await reply(`❌ Error: ${error.message}\nPlease try again or use *${prefix}help song*`);
     }
   }
 );
+
+/* Helper Functions */
+async function searchYoutube(query) {
+  const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+  const response = await axios.get(searchUrl);
+  const videoId = response.data.match(/"videoId":"([a-zA-Z0-9_-]{11})"/)[1];
+  return `https://www.youtube.com/watch?v=${videoId}`;
+}
+
+function formatTime(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor(seconds % 3600 / 60);
+  const s = Math.floor(seconds % 60);
+  return [h, m > 9 ? m : h ? '0' + m : m || '0', s > 9 ? s : '0' + s]
+    .filter(Boolean)
+    .join(':');
+}
+
+function formatViews(views) {
+  return parseInt(views).toLocaleString();
+}
+
+function formatDate(dateString) {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+}
+
+async function downloadImage(url) {
+  const path = `./thumb_${Date.now()}.jpg`;
+  const writer = fs.createWriteStream(path);
+  const response = await axios.get(url, { responseType: 'stream' });
+  response.data.pipe(writer);
+  return new Promise((resolve, reject) => {
+    writer.on('finish', () => resolve(fs.readFileSync(path)));
+    writer.on('error', reject);
+  });
+}
