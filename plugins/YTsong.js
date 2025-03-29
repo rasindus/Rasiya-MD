@@ -14,40 +14,18 @@ cmd(
     robin,
     mek,
     m,
-    {
-      from,
-      quoted,
-      body,
-      isCmd,
-      command,
-      args,
-      q,
-      isGroup,
-      sender,
-      senderNumber,
-      botNumber2,
-      botNumber,
-      pushname,
-      isMe,
-      isOwner,
-      groupMetadata,
-      groupName,
-      participants,
-      groupAdmins,
-      isBotAdmins,
-      isAdmins,
-      reply,
-    }
+    { from, q, reply }
   ) => {
     try {
       if (!q) return reply("*නමක් හරි ලින්ක් එකක් හරි දෙන්න* 🌚❤️");
 
-      // Search for the video
       const search = await yts(q);
+      if (!search.videos || search.videos.length === 0) {
+        return reply("❌ No results found for your search.");
+      }
       const data = search.videos[0];
       const url = data.url;
 
-      // Song metadata description
       let desc = `
 *❤️R_A_S_I_Y_A❤️ SONG DOWNLOADER❤️*
 
@@ -61,29 +39,34 @@ cmd(
 𝐌𝐚𝐝𝐞 𝐛𝐲 ❤️R_A_S_I_Y_A❤️
 `;
 
-      // Send metadata thumbnail message
       await robin.sendMessage(
         from,
         { image: { url: data.thumbnail }, caption: desc },
         { quoted: mek }
       );
 
-      // Download the audio using @vreden/youtube_scraper
-      const quality = "128"; // Default quality
+      const quality = "128";
       const songData = await ytmp3(url, quality);
 
-      // Validate song duration (limit: 30 minutes)
-      let durationParts = data.timestamp.split(":").map(Number);
-      let totalSeconds =
-        durationParts.length === 3
-          ? durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2]
-          : durationParts[0] * 60 + durationParts[1];
-
-      if (totalSeconds > 1800) {
-        return reply("⏱️ audio limit is 30 minitues");
+      if (!songData || !songData.download || !songData.download.url) {
+        return reply("❌ Failed to download the song. Please try again later.");
       }
 
-      // Send audio file
+      let durationParts = data.timestamp.split(":").map(Number);
+
+      if (durationParts && durationParts.length > 0) {
+        let totalSeconds =
+          durationParts.length === 3
+            ? durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2]
+            : durationParts[0] * 60 + durationParts[1];
+
+        if (totalSeconds > 1800) {
+          return reply("⏱️ audio limit is 30 minutes");
+        }
+      } else {
+        return reply("❌ Error getting song duration");
+      }
+
       await robin.sendMessage(
         from,
         {
@@ -93,7 +76,6 @@ cmd(
         { quoted: mek }
       );
 
-      // Send as a document (optional)
       await robin.sendMessage(
         from,
         {
@@ -107,7 +89,7 @@ cmd(
 
       return reply("*Thanks for using my bot* 🌚❤️");
     } catch (e) {
-      console.log(e);
+      console.error("Error in song command:", e); // Log the error for debugging
       reply(`❌ Error: ${e.message}`);
     }
   }
