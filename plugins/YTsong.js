@@ -1,15 +1,13 @@
 const { cmd, commands } = require("../command");
 const axios = require("axios");
 const ytdl = require("ytdl-core");
-
-// ඔබගේ YouTube API Key එක මෙතන යොදන්න
-const YOUTUBE_API_KEY = "AIzaSyCL6pud2G9hnXPRCVfuDzktHCEywi5JqcU";
+const { yts } = require("yt-search");
 
 cmd(
   {
     pattern: "song",
     react: "🎵",
-    desc: "ගීතය බාගන්න (YouTube API මගින්)",
+    desc: "ගීතය බාගන්න (යාවත්කාලීන කළ විසඳුම)",
     category: "download",
     filename: __filename,
   },
@@ -20,28 +18,45 @@ cmd(
       let videoId;
       let videoInfo;
 
-      // ඇතුළත් කළේ URL දැයි පරීක්ෂා කරන්න
+      // URL වලංගුදැයි පරීක්ෂා කරන්න
       if (ytdl.validateURL(q)) {
-        videoId = ytdl.getURLVideoID(q);
+        try {
+          videoId = ytdl.getURLVideoID(q);
+        } catch (e) {
+          return reply("❌ අවලංගු YouTube ලින්ක් එකකි");
+        }
       } else {
-        // YouTube API භාවිතයෙන් සෙවුම් කරන්න
-        const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${encodeURIComponent(q)}&key=${YOUTUBE_API_KEY}&type=video`;
-        
-        const searchResponse = await axios.get(searchUrl);
-        
-        if (!searchResponse.data.items || searchResponse.data.items.length === 0) {
+        // yt-search භාවිතා කරමින් සරල සෙවුම
+        const searchResults = await yts(q);
+        if (!searchResults.videos || searchResults.videos.length === 0) {
           return reply("සෙවුම් ප්‍රතිඵල හමු නොවීය");
         }
-
-        videoId = searchResponse.data.items[0].id.videoId;
+        videoId = searchResults.videos[0].videoId;
       }
 
-      // වීඩියෝ තොරතුරු ලබා ගන්න
-      videoInfo = await ytdl.getInfo(`https://www.youtube.com/watch?v=${videoId}`);
-      const details = videoInfo.videoDetails;
+      // ytdl-core විකල්ප සහිතව තොරතුරු ලබා ගන්න
+      videoInfo = await ytdl.getInfo(`https://www.youtube.com/watch?v=${videoId}`, {
+        requestOptions: {
+          headers: {
+            'Accept': 'text/html,application/xhtml+xml',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        }
+      }).catch(async err => {
+        console.error("ytdl-core දෝෂය:", err);
+        // උපරිම විකල්ප උත්සාහ කරන්න
+        return await ytdl.getInfo(`https://www.youtube.com/watch?v=${videoId}`, {
+          lang: 'en',
+          requestOptions: {
+            headers: {
+              'Accept-Language': 'en-US,en;q=0.9'
+            }
+          }
+        });
+      });
 
-      // ධාවන කාලය ආකෘතිගත කරන්න
-      const duration = formatTime(details.lengthSeconds);
+      const details = videoInfo.videoDetails;
+      const duration = formatDuration(details.lengthSeconds);
 
       // පණිවුඩය සකස් කරන්න
       const message = `
@@ -50,33 +65,38 @@ cmd(
 📌 *තේමාව*: ${details.title}
 👩‍🎤 *කලාකරු*: ${details.author.name}
 ⏱️ *කාලය*: ${duration}
-👀 *බැලුම්*: ${details.viewCount}
-📅 *උඩුගත කළ දිනය*: ${new Date(details.uploadDate).toLocaleDateString()}
+👀 *බැලුම්*: ${parseInt(details.viewCount).toLocaleString()}
 🔗 *සබැඳිය*: ${details.video_url}
 
 Powered by ❤️R_A_S_I_Y_A❤️
 `;
 
-      // තම්බ්නේල් රූපය සහ තොරතුරු යවන්න
+      // තොරතුරු යවන්න
       await robin.sendMessage(
         from,
         { 
-          image: { url: details.thumbnails[3].url }, // උසස් තම්බ්නේල් රූපය
+          image: { url: details.thumbnails[3].url }, 
           caption: message 
         },
         { quoted: mek }
       );
 
-      // ගීතයේ දිග පරීක්ෂා කරන්න (30 මිනිත්තු තුළදී)
+      // කාලය පරීක්ෂා කරන්න (30 මිනිත්තු)
       if (parseInt(details.lengthSeconds) > 1800) {
         return reply("⚠️ ගීතය 30 මිනිත්තු වලට වැඩි විය නොහැක");
       }
 
-      // ගීතය බාගන්න
+      // ගීතය බාගන්න (හැකිලීම් වලට එරෙහිව විවිධ විකල්ප)
       const audioStream = ytdl(`https://www.youtube.com/watch?v=${videoId}`, {
         filter: "audioonly",
         quality: "highestaudio",
-        highWaterMark: 1 << 25
+        highWaterMark: 1 << 25,
+        requestOptions: {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept-Language': 'en-US,en;q=0.9'
+          }
+        }
       });
 
       // ගීතය යවන්න
@@ -85,7 +105,7 @@ Powered by ❤️R_A_S_I_Y_A❤️
         {
           audio: { stream: audioStream },
           mimetype: "audio/mpeg",
-          fileName: `${details.title.replace(/[^\w\s]/gi, '')}.mp3` // විශේෂ අක්ෂ ඉවත් කරන්න
+          fileName: `${details.title.replace(/[^\w\s]/gi, '')}.mp3`
         },
         { quoted: mek }
       );
@@ -95,10 +115,10 @@ Powered by ❤️R_A_S_I_Y_A❤️
     } catch (error) {
       console.error("දෝෂය:", error);
       
-      if (error.response && error.response.status === 403) {
-        return reply("❌ API Key එක වලංගු නැත හෝ quota ඉවරයි. කරුණාකර API Key එක පරීක්ෂා කරන්න");
+      if (error.message.includes("410")) {
+        return reply("❌ YouTube විසින් ඉල්ලුම අවහිර කර ඇත. කරුණාකර පසුව උත්සාහ කරන්න හෝ වීඩියෝ ලින්ක් එක පරීක්ෂා කරන්න");
       } else if (error.message.includes("Video unavailable")) {
-        return reply("❌ වීඩියෝව ලබා ගත නොහැකිය");
+        return reply("❌ වීඩියෝව ලබා ගත නොහැකිය හෝ රටවල් සීමාවන් නිසා බාධා වී ඇත");
       } else {
         return reply(`දෝෂයක් ඇතිවිය: ${error.message}`);
       }
@@ -106,8 +126,8 @@ Powered by ❤️R_A_S_I_Y_A❤️
   }
 );
 
-// තත්පර HH:MM:SS බවට පරිවර්තනය කිරීම
-function formatTime(seconds) {
+// කාලය ආකෘතිගත කිරීම
+function formatDuration(seconds) {
   seconds = parseInt(seconds);
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
