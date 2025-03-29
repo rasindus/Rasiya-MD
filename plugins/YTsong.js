@@ -1,140 +1,115 @@
-const { cmd, commands } = require("../command");
-const axios = require("axios");
-const ytdl = require("ytdl-core");
-const { yts } = require("yt-search");
+const config = require('../config');
+const { cmd } = require('../command');
+const DY_SCRAP = require('@dark-yasiya/scrap');
+const dy_scrap = new DY_SCRAP();
+const yts = require('yt-search');
 
-cmd(
-  {
+function replaceYouTubeID(url) {
+    const regex = /(?:youtube\.com\/(?:.*v=|.*\/)|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/;
+    const match = url.match(regex);
+    return match ? match[1] : null;
+}
+
+cmd({
     pattern: "song",
+    alias: ["ytmp3", "ytmp3dl"],
     react: "🎵",
-    desc: "ගීතය බාගන්න (යාවත්කාලීන කළ විසඳුම)",
+    desc: "Download Ytmp3 - Rasiya Bot",
     category: "download",
-    filename: __filename,
-  },
-  async (robin, mek, m, { from, q, reply }) => {
+    use: ".song <Text or YT URL>",
+    filename: __filename
+}, async (conn, m, mek, { from, q, reply }) => {
     try {
-      if (!q) return reply("කරුණාකර ගීතයේ නම හෝ YouTube ලින්ක් එකක් ඇතුළත් කරන්න");
+        if (!q) return await reply("Rasiya Bot: ❌ Please provide a Query or Youtube URL!");
 
-      let videoId;
-      let videoInfo;
+        let id = q.startsWith("https://") ? replaceYouTubeID(q) : null;
 
-      // URL වලංගුදැයි පරීක්ෂා කරන්න
-      if (ytdl.validateURL(q)) {
-        try {
-          videoId = ytdl.getURLVideoID(q);
-        } catch (e) {
-          return reply("❌ අවලංගු YouTube ලින්ක් එකකි");
+        if (!id) {
+            const searchResults = await dy_scrap.ytsearch(q);
+            if (!searchResults?.results?.length) return await reply("Rasiya Bot: ❌ No results found!");
+            id = searchResults.results[0].videoId;
         }
-      } else {
-        // yt-search භාවිතා කරමින් සරල සෙවුම
-        const searchResults = await yts(q);
-        if (!searchResults.videos || searchResults.videos.length === 0) {
-          return reply("සෙවුම් ප්‍රතිඵල හමු නොවීය");
-        }
-        videoId = searchResults.videos[0].videoId;
-      }
 
-      // ytdl-core විකල්ප සහිතව තොරතුරු ලබා ගන්න
-      videoInfo = await ytdl.getInfo(`https://www.youtube.com/watch?v=${videoId}`, {
-        requestOptions: {
-          headers: {
-            'Accept': 'text/html,application/xhtml+xml',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          }
-        }
-      }).catch(async err => {
-        console.error("ytdl-core දෝෂය:", err);
-        // උපරිම විකල්ප උත්සාහ කරන්න
-        return await ytdl.getInfo(`https://www.youtube.com/watch?v=${videoId}`, {
-          lang: 'en',
-          requestOptions: {
-            headers: {
-              'Accept-Language': 'en-US,en;q=0.9'
-            }
-          }
-        });
-      });
+        const data = await dy_scrap.ytsearch(`https://youtube.com/watch?v=$${id}`);
+        if (!data?.results?.length) return await reply("Rasiya Bot: ❌ Failed to fetch video!");
 
-      const details = videoInfo.videoDetails;
-      const duration = formatDuration(details.lengthSeconds);
+        const { url, title, image, timestamp, ago, views, author } = data.results[0];
 
-      // පණිවුඩය සකස් කරන්න
-      const message = `
-🎵 *ගීත තොරතුරු* 🎵
-
-📌 *තේමාව*: ${details.title}
-👩‍🎤 *කලාකරු*: ${details.author.name}
-⏱️ *කාලය*: ${duration}
-👀 *බැලුම්*: ${parseInt(details.viewCount).toLocaleString()}
-🔗 *සබැඳිය*: ${details.video_url}
-
-Powered by ❤️R_A_S_I_Y_A❤️
+        let info = `
+  ╔═════════════════════════╗
+  ║ 🎵 *Rasiya Bot - Song DL* 🎵 ║
+  ╠═════════════════════════╣
+  ║ 🎶 *Title:* ${title || "Unknown"}          ║
+  ║ ⏳ *Duration:* ${timestamp || "Unknown"}      ║
+  ║ 👀 *Views:* ${views || "Unknown"}           ║
+  ║ 🌏 *Release:* ${ago || "Unknown"}           ║
+  ║ 👤 *Author:* ${author?.name || "Unknown"}      ║
+  ║ 🔗 *URL:* ${url || "Unknown"}            ║
+  ╠═════════════════════════╣
+  ║ 🔽 *Download Options:* ║
+  ║ 1️⃣.1️⃣ *Audio (🎵)* ║
+  ║ 1️⃣.2️⃣ *Document (📁)* ║
+  ╚═════════════════════════╝
+  💖 *Powered by Rasiya Bot* 💖
 `;
 
-      // තොරතුරු යවන්න
-      await robin.sendMessage(
-        from,
-        { 
-          image: { url: details.thumbnails[3].url }, 
-          caption: message 
-        },
-        { quoted: mek }
-      );
+        const sentMsg = await conn.sendMessage(from, { image: { url: image }, caption: info.trim() }, { quoted: mek });
+        const messageID = sentMsg.key.id;
+        await conn.sendMessage(from, { react: { text: '🎶', key: sentMsg.key } });
 
-      // කාලය පරීක්ෂා කරන්න (30 මිනිත්තු)
-      if (parseInt(details.lengthSeconds) > 1800) {
-        return reply("⚠️ ගීතය 30 මිනිත්තු වලට වැඩි විය නොහැක");
-      }
+        // Simulate conn.ev.once
+        let replied = false;
+        const messageListener = async (messageUpdate) => {
+            try {
+                if (replied) return; // Prevent multiple replies
+                const mekInfo = messageUpdate?.messages[0];
+                if (!mekInfo?.message) return;
 
-      // ගීතය බාගන්න (හැකිලීම් වලට එරෙහිව විවිධ විකල්ප)
-      const audioStream = ytdl(`https://www.youtube.com/watch?v=${videoId}`, {
-        filter: "audioonly",
-        quality: "highestaudio",
-        highWaterMark: 1 << 25,
-        requestOptions: {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept-Language': 'en-US,en;q=0.9'
-          }
-        }
-      });
+                const messageType = mekInfo?.message?.conversation || mekInfo?.message?.extendedTextMessage?.text;
+                const isReplyToSentMsg = mekInfo?.message?.extendedTextMessage?.contextInfo?.stanzaId === messageID;
 
-      // ගීතය යවන්න
-      await robin.sendMessage(
-        from,
-        {
-          audio: { stream: audioStream },
-          mimetype: "audio/mpeg",
-          fileName: `${details.title.replace(/[^\w\s]/gi, '')}.mp3`
-        },
-        { quoted: mek }
-      );
+                if (!isReplyToSentMsg) return;
 
-      return reply("ගීතය සාර්ථකව බාගත කරන ලදී! 🎧");
+                replied = true; // Set flag to prevent further replies
+                conn.ev.off('messages.upsert', messageListener); // Remove listener
+
+                let userReply = messageType.trim();
+                let msg;
+                let type;
+                let response;
+
+                if (userReply === "1.1") {
+                    msg = await conn.sendMessage(from, { text: "Rasiya Bot: ⏳ Processing Audio...", quoted: mek });
+                    response = await dy_scrap.ytmp3(`https://youtube.com/watch?v=$${id}`);
+                    let downloadUrl = response?.result?.download?.url;
+                    if (!downloadUrl) return await reply("Rasiya Bot: ❌ Download link not found!");
+                    type = { audio: { url: downloadUrl }, mimetype: "audio/mpeg" };
+
+                } else if (userReply === "1.2") {
+                    msg = await conn.sendMessage(from, { text: "Rasiya Bot: ⏳ Processing Document...", quoted: mek });
+                    const response = await dy_scrap.ytmp3(`https://youtube.com/watch?v=$${id}`);
+                    let downloadUrl = response?.result?.download?.url;
+                    if (!downloadUrl) return await reply("Rasiya Bot: ❌ Download link not found!");
+                    type = { document: { url: downloadUrl }, fileName: `${title}.mp3`, mimetype: "audio/mpeg", caption: title };
+
+                } else {
+                    return await reply("Rasiya Bot: ❌ Invalid choice! Reply with 1️⃣.1️⃣ or 1️⃣.2️⃣.");
+                }
+
+                await conn.sendMessage(from, type, { quoted: mek });
+                await conn.sendMessage(from, { text: 'Rasiya Bot: ✅ Media Upload Successful ✅', edit: msg.key });
+
+            } catch (error) {
+                console.error(error);
+                await reply(`Rasiya Bot: ❌ *An error occurred while processing:* ${error.message || "Error!"}`);
+            }
+        };
+
+        conn.ev.on('messages.upsert', messageListener);
 
     } catch (error) {
-      console.error("දෝෂය:", error);
-      
-      if (error.message.includes("410")) {
-        return reply("❌ YouTube විසින් ඉල්ලුම අවහිර කර ඇත. කරුණාකර පසුව උත්සාහ කරන්න හෝ වීඩියෝ ලින්ක් එක පරීක්ෂා කරන්න");
-      } else if (error.message.includes("Video unavailable")) {
-        return reply("❌ වීඩියෝව ලබා ගත නොහැකිය හෝ රටවල් සීමාවන් නිසා බාධා වී ඇත");
-      } else {
-        return reply(`දෝෂයක් ඇතිවිය: ${error.message}`);
-      }
+        console.error(error);
+        await conn.sendMessage(from, { react: { text: '❌', key: mek.key } });
+        await reply(`Rasiya Bot: ❌ *An error occurred:* ${error.message || "Error!"}`);
     }
-  }
-);
-
-// කාලය ආකෘතිගත කිරීම
-function formatDuration(seconds) {
-  seconds = parseInt(seconds);
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
-  
-  return [hours, minutes, secs]
-    .map(v => v < 10 ? "0" + v : v)
-    .filter((v, i) => v !== "00" || i > 0)
-    .join(":");
-}
+});
