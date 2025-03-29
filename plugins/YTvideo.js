@@ -94,16 +94,7 @@ Made by rasindu❤️
       );
 
       // Send as a document (optional)
-      await robin.sendMessage(
-        from,
-        {
-          document: { url: songData.download.url },
-          mimetype: "video/mp4",
-          fileName: `${data.title}.mp4´,
-          caption: "𝐌𝐚𝐝𝐞 𝐛𝐲 ❤️R_A_S_I_Y_A❤️",
-        },
-        { quoted: mek }
-      );
+      
 
       return reply("*Thanks for using my bot* 🌚❤️");
     } catch (e) {
