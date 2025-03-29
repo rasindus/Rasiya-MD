@@ -28,6 +28,7 @@
     "fb-downloader-scrapper": "^2.0.0",
     "canvas": "^3.0.1",
     "@vreden/youtube_scraper": "^1.2.7",
-    "ytdl-core": "^4.11.5"
+    "ytdl-core": "^4.11.5",
+    "fluent-ffmpeg": "^2.1.3"
   }
 }
