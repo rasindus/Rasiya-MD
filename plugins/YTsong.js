@@ -44,18 +44,27 @@ cmd(
 
       // Search for the video
       const search = await yts(q);
+      if (!search || !search.videos || search.videos.length === 0) {
+        return reply("*සෙවුමට ගැලපෙන වීඩියෝවක් හමු නොවීය* ❌");
+      }
+
       const data = search.videos[0];
+      if (!data || !data.url) {
+        return reply("*වීඩියෝ දත්ත ලබා ගැනීමට අපොහොසත් විය* ❌");
+      }
+
       const url = data.url;
+      const quality = "128"; // Default quality
 
       // Song metadata description
       let desc = `
 *❤️R_A_S_I_Y_A❤️ SONG DOWNLOADER❤️*
 
-👻 *title* : ${data.title}
-👻 *description* : ${data.description}
-👻 *time* : ${data.timestamp}
-👻 *ago* : ${data.ago}
-👻 *views* : ${data.views}
+👻 *title* : ${data.title || "N/A"}
+👻 *description* : ${data.description || "N/A"}
+👻 *time* : ${data.timestamp || "N/A"}
+👻 *ago* : ${data.ago || "N/A"}
+👻 *views* : ${data.views || "N/A"}
 👻 *url* : ${data.url}
 
 Made by rasindu❤️
@@ -64,23 +73,30 @@ Made by rasindu❤️
       // Send metadata thumbnail message
       await robin.sendMessage(
         from,
-        { image: { url: data.thumbnail }, caption: desc },
+        { 
+          image: { url: data.thumbnail || "https://i.ytimg.com/vi/default.jpg" }, 
+          caption: desc 
+        },
         { quoted: mek }
       );
 
-      // Download the audio using @vreden/youtube_scraper
-      const quality = "128"; // Default quality
+      // Download the audio
       const songData = await ytmp3(url, quality);
+      if (!songData || !songData.download || !songData.download.url) {
+        return reply("*ඔඩියෝ බාගත කිරීමට අපොහොසත් විය* ❌");
+      }
 
       // Validate song duration (limit: 30 minutes)
-      let durationParts = data.timestamp.split(":").map(Number);
-      let totalSeconds =
-        durationParts.length === 3
-          ? durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2]
-          : durationParts[0] * 60 + durationParts[1];
+      if (data.timestamp) {
+        let durationParts = data.timestamp.split(":").map(Number);
+        let totalSeconds =
+          durationParts.length === 3
+            ? durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2]
+            : durationParts[0] * 60 + durationParts[1];
 
-      if (totalSeconds > 1800) {
-        return reply("⏱️ audio limit is 30 minitues");
+        if (totalSeconds > 1800) {
+          return reply("⏱️ audio limit is 30 minutes");
+        }
       }
 
       // Send audio file
@@ -99,7 +115,7 @@ Made by rasindu❤️
         {
           document: { url: songData.download.url },
           mimetype: "audio/mpeg",
-          fileName: `${data.title}.mp3`,
+          fileName: `${(data.title || "audio").replace(/[^\w\s]/gi, '')}.mp3`,
           caption: "𝐌𝐚𝐝𝐞 𝐛𝐲 ❤️R_A_S_I_Y_A❤️",
         },
         { quoted: mek }
@@ -107,8 +123,8 @@ Made by rasindu❤️
 
       return reply("*Thanks for using my bot* 🌚❤️");
     } catch (e) {
-      console.log(e);
-      reply(`❌ Error: ${e.message}`);
+      console.error("Song download error:", e);
+      reply(`❌ දෝෂය: ${e.message || "Unknown error occurred"}`);
     }
   }
 );
