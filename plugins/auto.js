@@ -34,7 +34,7 @@ async (robin, mek, m, { from, body, isOwner }) => {
           
             if (config.AUTO_STICKER === 'true') {
                 //if (isOwner) return;        
-                await robin.sendMessage(from,{sticker: { url : data[text]},package: 'S_I_H_I_L_E_L'},{ quoted: mek })   
+                await robin.sendMessage(from,{sticker: { url : data[text]},package: '❤️R_A_S_I_Y_A❤️'},{ quoted: mek })   
             
             }
         }
