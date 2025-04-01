@@ -1,8 +1,7 @@
 const { cmd, commands } = require("../command");
 //Potential fix, if default export.
 
-const { default: getFbVideoinfo } = import("fb-downloader-scrapper");
-
+const getFbVideoInfo = require("fb-downloader-scrapper");
 cmd(
   {
     pattern: "fb",
