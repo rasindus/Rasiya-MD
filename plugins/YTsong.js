@@ -194,7 +194,7 @@ cmd(
             pendingDownloads.delete(messageID);
             await robin.sendMessage(
               from,
-              { text: "*Thanks for using ❄️Frozen Queen❄️*" },
+              { text: "*Thanks for using RASIYA BOT❤️*" },
               { quoted: mek }
             );
           } else {
