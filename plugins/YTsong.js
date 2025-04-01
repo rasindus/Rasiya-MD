@@ -1,115 +1,215 @@
-const config = require('../config');
-const { cmd } = require('../command');
+const { cmd, commands } = require("../command");
 const DY_SCRAP = require('@dark-yasiya/scrap');
 const dy_scrap = new DY_SCRAP();
-const yts = require('yt-search');
 
-function replaceYouTubeID(url) {
-    const regex = /(?:youtube\.com\/(?:.*v=|.*\/)|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/;
-    const match = url.match(regex);
-    return match ? match[1] : null;
-}
+// Store pending downloads
+const pendingDownloads = new Map();
 
-cmd({
+// Helper function to extract YouTube ID from URL
+const replaceYouTubeID = (url) => {
+  const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+  const match = url.match(regex);
+  return match ? match[1] : null;
+};
+
+cmd(
+  {
     pattern: "song",
     alias: ["ytmp3", "ytmp3dl"],
     react: "🎵",
-    desc: "Download Ytmp3 - Rasiya Bot",
+    desc: "Download Ytmp3",
     category: "download",
     use: ".song <Text or YT URL>",
-    filename: __filename
-}, async (conn, m, mek, { from, q, reply }) => {
+    filename: __filename,
+  },
+  async (
+    robin,
+    mek,
+    m,
+    {
+      from,
+      quoted,
+      body,
+      isCmd,
+      command,
+      args,
+      q,
+      isGroup,
+      sender,
+      senderNumber,
+      botNumber2,
+      botNumber,
+      pushname,
+      isMe,
+      isOwner,
+      groupMetadata,
+      groupName,
+      participants,
+      groupAdmins,
+      isBotAdmins,
+      isAdmins,
+      reply,
+    }
+  ) => {
     try {
-        if (!q) return await reply("Rasiya Bot: ❌ Please provide a Query or Youtube URL!");
+      if (!q) {
+        return await reply("❌ Please provide a Query or Youtube URL! Ex: `.song lelena`");
+      }
 
-        let id = q.startsWith("https://") ? replaceYouTubeID(q) : null;
+      let id = null;
+      if (q.startsWith("https://")) {
+        id = replaceYouTubeID(q);
+        if (!id) return await reply("❌ Invalid YouTube URL!");
+      }
 
-        if (!id) {
-            const searchResults = await dy_scrap.ytsearch(q);
-            if (!searchResults?.results?.length) return await reply("Rasiya Bot: ❌ No results found!");
-            id = searchResults.results[0].videoId;
-        }
+      if (!id) {
+        const searchResults = await dy_scrap.ytsearch(q);
+        if (!searchResults?.results?.length) return await reply("❌ No results found!");
+        id = searchResults.results[0].videoId;
+      }
 
-        const data = await dy_scrap.ytsearch(`https://youtube.com/watch?v=$${id}`);
-        if (!data?.results?.length) return await reply("Rasiya Bot: ❌ Failed to fetch video!");
+      const response = await dy_scrap.ytmp3(`https://youtube.com/watch?v=${id}`);
+      if (!response?.status) return await reply("❌ Failed to fetch video!");
 
-        const { url, title, image, timestamp, ago, views, author } = data.results[0];
+      const { url, title, description, image, timestamp, ago, views, author } = response.result.data;
 
-        let info = `
-  ╔═════════════════════════╗
-  ║ 🎵 *Rasiya Bot - Song DL* 🎵 ║
-  ╠═════════════════════════╣
-  ║ 🎶 *Title:* ${title || "Unknown"}          ║
-  ║ ⏳ *Duration:* ${timestamp || "Unknown"}      ║
-  ║ 👀 *Views:* ${views || "Unknown"}           ║
-  ║ 🌏 *Release:* ${ago || "Unknown"}           ║
-  ║ 👤 *Author:* ${author?.name || "Unknown"}      ║
-  ║ 🔗 *URL:* ${url || "Unknown"}            ║
-  ╠═════════════════════════╣
-  ║ 🔽 *Download Options:* ║
-  ║ 1️⃣.1️⃣ *Audio (🎵)* ║
-  ║ 1️⃣.2️⃣ *Document (📁)* ║
-  ╚═════════════════════════╝
-  💖 *Powered by Rasiya Bot* 💖
+      // Validate song duration (limit: 30 minutes)
+      let durationParts = timestamp.split(":").map(Number);
+      let totalSeconds =
+        durationParts.length === 3
+          ? durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2]
+          : durationParts[0] * 60 + durationParts[1];
+      if (totalSeconds > 1800) {
+        return await reply("⏱️ Audio limit is 30 minutes");
+      }
+
+      // Song metadata with choice prompt
+      let info = `
+🍄 *𝚂𝙾𝙽𝙶 𝙳𝙾𝚆𝙽𝙻𝙾𝙰𝙳𝙴𝚁* 🍄
+
+🎵 *Title:* ${title || "Unknown"}
+📝 *Description:* ${description || "N/A"}
+⏳ *Duration:* ${timestamp || "Unknown"}
+📅 *Released:* ${ago || "Unknown"}
+👀 *Views:* ${views || "Unknown"}
+🔗 *URL:* ${url || "Unknown"}
+
+🔽 *Reply with your choice:*
+1️⃣ Audio Type 🎵
+2️⃣ Document Type 📁
+3️⃣ Both
+
+𝐌𝐚𝐝𝐞 𝐛𝐲 Rasiya boy👻
 `;
 
-        const sentMsg = await conn.sendMessage(from, { image: { url: image }, caption: info.trim() }, { quoted: mek });
-        const messageID = sentMsg.key.id;
-        await conn.sendMessage(from, { react: { text: '🎶', key: sentMsg.key } });
+      // Send metadata with choice prompt
+      const sentMsg = await robin.sendMessage(
+        from,
+        { image: { url: image }, caption: info },
+        { quoted: mek }
+      );
+      const messageID = sentMsg.key.id;
 
-        // Simulate conn.ev.once
-        let replied = false;
-        const messageListener = async (messageUpdate) => {
-            try {
-                if (replied) return; // Prevent multiple replies
-                const mekInfo = messageUpdate?.messages[0];
-                if (!mekInfo?.message) return;
+      // React to indicate waiting for input
+      await robin.sendMessage(from, { react: { text: "🎶", key: sentMsg.key } });
 
-                const messageType = mekInfo?.message?.conversation || mekInfo?.message?.extendedTextMessage?.text;
-                const isReplyToSentMsg = mekInfo?.message?.extendedTextMessage?.contextInfo?.stanzaId === messageID;
+      // Store song data for later use
+      pendingDownloads.set(messageID, { songData: response.result, data: { title, url }, from, mek });
 
-                if (!isReplyToSentMsg) return;
+      // Event listener for user reply
+      robin.ev.on("messages.upsert", async (messageUpdate) => {
+        const mekInfo = messageUpdate.messages[0];
+        if (!mekInfo.message) return;
 
-                replied = true; // Set flag to prevent further replies
-                conn.ev.off('messages.upsert', messageListener); // Remove listener
+        const isReplyToSentMsg =
+          mekInfo.message.extendedTextMessage?.contextInfo?.stanzaId === messageID;
+        if (isReplyToSentMsg && pendingDownloads.has(messageID)) {
+          const { songData, data, from, mek } = pendingDownloads.get(messageID);
+          const userReply =
+            mekInfo.message.conversation || mekInfo.message.extendedTextMessage.text;
+          let choice = userReply.trim();
 
-                let userReply = messageType.trim();
-                let msg;
-                let type;
-                let response;
+          // Process user's choice
+          if (choice === "1" || choice === "2" || choice === "3") {
+            const processingMsg = await robin.sendMessage(
+              from,
+              { text: "⏳ Processing..." },
+              { quoted: mek }
+            );
 
-                if (userReply === "1.1") {
-                    msg = await conn.sendMessage(from, { text: "Rasiya Bot: ⏳ Processing Audio...", quoted: mek });
-                    response = await dy_scrap.ytmp3(`https://youtube.com/watch?v=$${id}`);
-                    let downloadUrl = response?.result?.download?.url;
-                    if (!downloadUrl) return await reply("Rasiya Bot: ❌ Download link not found!");
-                    type = { audio: { url: downloadUrl }, mimetype: "audio/mpeg" };
+            let videoUrl = songData.download.url;
+            if (!videoUrl) return await reply("❌ Download link not found!");
 
-                } else if (userReply === "1.2") {
-                    msg = await conn.sendMessage(from, { text: "Rasiya Bot: ⏳ Processing Document...", quoted: mek });
-                    const response = await dy_scrap.ytmp3(`https://youtube.com/watch?v=$${id}`);
-                    let downloadUrl = response?.result?.download?.url;
-                    if (!downloadUrl) return await reply("Rasiya Bot: ❌ Download link not found!");
-                    type = { document: { url: downloadUrl }, fileName: `${title}.mp3`, mimetype: "audio/mpeg", caption: title };
-
-                } else {
-                    return await reply("Rasiya Bot: ❌ Invalid choice! Reply with 1️⃣.1️⃣ or 1️⃣.2️⃣.");
-                }
-
-                await conn.sendMessage(from, type, { quoted: mek });
-                await conn.sendMessage(from, { text: 'Rasiya Bot: ✅ Media Upload Successful ✅', edit: msg.key });
-
-            } catch (error) {
-                console.error(error);
-                await reply(`Rasiya Bot: ❌ *An error occurred while processing:* ${error.message || "Error!"}`);
+            if (choice === "1") {
+              // Send audio
+              await robin.sendMessage(
+                from,
+                { audio: { url: videoUrl }, mimetype: "audio/mpeg" },
+                { quoted: mek }
+              );
+              await robin.sendMessage(
+                from,
+                { text: "✅ Audio Upload Successful ✅", edit: processingMsg.key }
+              );
+            } else if (choice === "2") {
+              // Send document
+              await robin.sendMessage(
+                from,
+                {
+                  document: { url: videoUrl },
+                  mimetype: "audio/mpeg",
+                  fileName: `${data.title}.mp3`,
+                  caption: "𝐌𝐚𝐝𝐞 𝐛𝐲 Rasiya bot",
+                },
+                { quoted: mek }
+              );
+              await robin.sendMessage(
+                from,
+                { text: "✅ Document Upload Successful ✅", edit: processingMsg.key }
+              );
+            } else if (choice === "3") {
+              // Send both
+              await robin.sendMessage(
+                from,
+                { audio: { url: videoUrl }, mimetype: "audio/mpeg" },
+                { quoted: mek }
+              );
+              await robin.sendMessage(
+                from,
+                {
+                  document: { url: videoUrl },
+                  mimetype: "audio/mpeg",
+                  fileName: `${data.title}.mp3`,
+                  caption: "𝐌𝐚𝐝𝐞 𝐛𝐲 Rasiya bot",
+                },
+                { quoted: mek }
+              );
+              await robin.sendMessage(
+                from,
+                { text: "✅ Both Uploads Successful ✅", edit: processingMsg.key }
+              );
             }
-        };
 
-        conn.ev.on('messages.upsert', messageListener);
-
-    } catch (error) {
-        console.error(error);
-        await conn.sendMessage(from, { react: { text: '❌', key: mek.key } });
-        await reply(`Rasiya Bot: ❌ *An error occurred:* ${error.message || "Error!"}`);
+            // Cleanup
+            pendingDownloads.delete(messageID);
+            await robin.sendMessage(
+              from,
+              { text: "*Thanks for using ❄️Frozen Queen❄️*" },
+              { quoted: mek }
+            );
+          } else {
+            await robin.sendMessage(
+              from,
+              { text: "❌ Invalid choice! Reply with 1, 2, or 3." },
+              { quoted: mek }
+            );
+          }
+        }
+      });
+    } catch (e) {
+      console.log(e);
+      await robin.sendMessage(from, { react: { text: "❌", key: mek.key } });
+      await reply(`❌ *An error occurred:* ${e.message || "Error!"}`);
     }
-});
+  }
+);
