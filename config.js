@@ -15,4 +15,5 @@ module.exports = {
   AUTO_STICKER : process.env.AUTO_STICKER || "false",
   AUTO_STICKER : process.env.AUTO_STICKER || "false",
   MODE: process.env.MODE || "public",
+  GEMINI_API_KEY : process.env.GEMINI_API_KEY || "AIzaSyC8pSIvRTtYS-ZghDZWWPUY360gEFB37hM",
 };
