@@ -12,7 +12,7 @@ cmd({
   pattern: "song",
   desc: "Download songs.",
   category: "download",
-  react: '',
+  react: '🎵',
   filename: __filename
 }, async (messageHandler, context, quotedMessage, { from, reply, q }) => {
   try {
