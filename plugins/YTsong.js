@@ -1,4 +1,4 @@
-හරි, ඔබගේ ඉල්ලීම පරිදි, ගීතයේ තොරතුරු මුලින් යැවීමට පණිවිඩයක් සාදන්නම්. පහත දැක්වෙන්නේ යාවත්කාලීන කළ කේතයයි:
+
 const { cmd, commands } = require('../command');
 const yts = require('yt-search');
 const ddownr = require('denethdev-ytmp3');
