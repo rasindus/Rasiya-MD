@@ -69,27 +69,25 @@ cmd({
             const result = await ddownr.download(songUrl, 'mp3');
             clearInterval(progressInterval);
 
-            setTimeout(async () => {
-              const uploadMessage = await messageHandler.editMessage(from, { text: " *ශ්‍රව්‍ය ගොනුව උඩුගත වෙමින් පවතී...*\n\nby rasiya md" }, downloadMessage.key.id);
-              let uploadProgressValue = 0;
-              const uploadProgressInterval = setInterval(async () => {
-                uploadProgressValue += 10;
-                if (uploadProgressValue <= 100) {
-                  const uploadProgressBar = '🟩'.repeat(uploadProgressValue / 10) + '░'.repeat(10 - uploadProgressValue / 10);
-                  await messageHandler.editMessage(from, { text: ` *උඩුගත වෙමින් පවතී...* [${uploadProgressBar}] ${uploadProgressValue}%\n\nby rasiya md` }, downloadMessage.key.id);
-                } else {
-                  clearInterval(uploadProgressInterval);
-                }
-              }, 1000);
-
-              await messageHandler.sendMessage(from, {
-                audio: { url: result.uploadUrl || result.downloadUrl },
-                mimetype: "audio/mpeg",
-                caption: "by rasiya md"
-              }, { quoted: quotedMessage });
-
-              clearInterval(uploadProgressInterval);
+            await messageHandler.editMessage(from, { text: " *ශ්‍රව්‍ය ගොනුව උඩුගත වෙමින් පවතී...*\n\nby rasiya md" }, downloadMessage.key.id);
+            let uploadProgressValue = 0;
+            const uploadProgressInterval = setInterval(async () => {
+              uploadProgressValue += 10;
+              if (uploadProgressValue <= 100) {
+                const uploadProgressBar = '🟩'.repeat(uploadProgressValue / 10) + '░'.repeat(10 - uploadProgressValue / 10);
+                await messageHandler.editMessage(from, { text: ` *උඩුගත වෙමින් පවතී...* [${uploadProgressBar}] ${uploadProgressValue}%\n\nby rasiya md` }, downloadMessage.key.id);
+              } else {
+                clearInterval(uploadProgressInterval);
+              }
             }, 1000);
+
+            await messageHandler.sendMessage(from, {
+              audio: { url: result.uploadUrl || result.downloadUrl },
+              mimetype: "audio/mpeg",
+              caption: "by rasiya md"
+            }, { quoted: quotedMessage });
+
+            clearInterval(uploadProgressInterval);
             break;
           case '2':
             const documentDownloadMessage = await messageHandler.sendMessage(from, { text: "⏳ *ලේඛන ගොනුව බාගත වෙමින් පවතී...*\n\nby rasiya md" }, { quoted: quotedMessage });
@@ -107,27 +105,25 @@ cmd({
             const docResult = await ddownr.download(songUrl, 'mp3');
             clearInterval(docProgressInterval);
 
-            setTimeout(async () => {
-              const documentUploadMessage = await messageHandler.editMessage(from, { text: " *ලේඛන ගොනුව උඩුගත වෙමින් පවතී...*\n\nby rasiya md" }, documentDownloadMessage.key.id);
-              let docUploadProgressValue = 0;
-              const docUploadProgressInterval = setInterval(async () => {
-                docUploadProgressValue += 10;
-                if (docUploadProgressValue <= 100) {
-                  const uploadProgressBar = '🟩'.repeat(docUploadProgressValue / 10) + '░'.repeat(10 - docUploadProgressValue / 10);
-                  await messageHandler.editMessage(from, { text: ` *උඩුගත වෙමින් පවතී...* [${uploadProgressBar}] ${docUploadProgressValue}%\n\nby rasiya md` }, documentDownloadMessage.key.id);
-                } else {
-                  clearInterval(docUploadProgressInterval);
-                }
-              }, 1000);
-
-              await messageHandler.sendMessage(from, {
-                document: { url: docResult.uploadUrl || docResult.downloadUrl },
-                mimetype: 'audio/mpeg',
-                fileName: `${songData.title}.mp3`,
-                caption: `by rasiya md`
-              }, { quoted: quotedMessage });
-              clearInterval(docUploadProgressInterval);
+            await messageHandler.editMessage(from, { text: " *ලේඛන ගොනුව උඩුගත වෙමින් පවතී...*\n\nby rasiya md" }, documentDownloadMessage.key.id);
+            let docUploadProgressValue = 0;
+            const docUploadProgressInterval = setInterval(async () => {
+              docUploadProgressValue += 10;
+              if (docUploadProgressValue <= 100) {
+                const uploadProgressBar = '🟩'.repeat(docUploadProgressValue / 10) + '░'.repeat(10 - docUploadProgressValue / 10);
+                await messageHandler.editMessage(from, { text: ` *උඩුගත වෙමින් පවතී...* [${uploadProgressBar}] ${docUploadProgressValue}%\n\nby rasiya md` }, documentDownloadMessage.key.id);
+              } else {
+                clearInterval(docUploadProgressInterval);
+              }
             }, 1000);
+
+            await messageHandler.sendMessage(from, {
+              document: { url: docResult.uploadUrl || docResult.downloadUrl },
+              mimetype: 'audio/mpeg',
+              fileName: `${songData.title}.mp3`,
+              caption: `by rasiya md`
+            }, { quoted: quotedMessage });
+            clearInterval(docUploadProgressInterval);
             break;
           default:
             reply("⚠️ *වලංගු විකල්පයක් තෝරන්න!*");
