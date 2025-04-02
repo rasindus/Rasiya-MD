@@ -1,4 +1,3 @@
-
 const { cmd, commands } = require('../command');
 const yts = require('yt-search');
 const ddownr = require('denethdev-ytmp3');
@@ -9,7 +8,7 @@ cmd({
   pattern: "song",
   desc: "Download high quality songs.",
   category: "download",
-  react: '🎵',
+  react: '',
   filename: __filename
 }, async (messageHandler, context, quotedMessage, { from, reply, q }) => {
   try {
@@ -31,12 +30,12 @@ cmd({
     // ගීතයේ තොරතුරු මුලින් යවන්න
     await messageHandler.sendMessage(from, {
       image: { url: songData.thumbnail },
-      caption: `*❤️ Rasiya Music Downloader❤️*\n\n` +
-               `* 🎵ගීතය:* ${songData.title}\n` +
-               `*‍ 📷බැලීම්:* ${songData.views}\n` +
-               `*🕑කාලය:* ${songData.timestamp}\n` +
-               `* 📅උඩුගත කලේ:* ${songData.ago}\n` +
-               `* 🎤ගායකයා:* ${songData.author.name}\n\n` +
+      caption: `* Rasiya Music Downloader*\n\n` +
+               `* ගීතය:* ${songData.title}\n` +
+               `*‍ බැලීම්:* ${songData.views}\n` +
+               `*⏱ කාලය:* ${songData.timestamp}\n` +
+               `* උඩුගත කලේ:* ${songData.ago}\n` +
+               `* ගායකයා:* ${songData.author.name}\n\n` +
                `_Rasiya Bot © 2024 | Premium Quality_`
     }, { quoted: quotedMessage });
 
@@ -164,4 +163,3 @@ cmd({
     reply("*❌ දෝෂයක් ඇතිවිය! නැවත උත්සාහ කරන්න*");
   }
 });
-
