@@ -236,7 +236,7 @@ if (
     //Owner react
     if (senderNumber.includes("94783364887")) {
       if (isReact) return;
-      m.react("");
+      m.react("®️");
     }
     //work type
     if (!isOwner && config.MODE === "private") return;
