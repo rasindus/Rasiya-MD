@@ -1,182 +1,195 @@
-const { cmd } = require('../command');
+const { cmd, commands } = require('../command');
 const yts = require('yt-search');
 const ddownr = require('denethdev-ytmp3');
+const fs = require('fs');
 const axios = require('axios');
-
-// ප්‍රගති තීරු උපයෝගී කරයි
-const createProgressBar = (percent, barLength = 20) => {
-  const progress = Math.round((percent / 100) * barLength);
-  return `[${'█'.repeat(progress)}${'░'.repeat(barLength - progress)}] ${percent}%`;
-};
-
-// බාගත කිරීමේ ප්‍රගතිය පෙන්වයි
-const showProgress = async (message, initialText) => {
-  let progress = 0;
-  const progressMsg = await message.reply(`${initialText}\n${createProgressBar(0)}`);
-
-  const interval = setInterval(async () => {
-    progress += (progress < 90 ? Math.floor(Math.random() * 10) + 5 : 1);
-    if (progress > 100) progress = 100;
-
-    try {
-      await message.client.sendMessage(message.jid, {
-        edit: progressMsg.key,
-        text: `${initialText}\n${createProgressBar(progress)}`
-      });
-
-      if (progress === 100) {
-        clearInterval(interval);
-      }
-    } catch (e) {
-      clearInterval(interval);
-    }
-  }, 1500);
-
-  return {
-    update: async (text) => {
-      await message.client.sendMessage(message.jid, {
-        edit: progressMsg.key,
-        text: `${text}\n${createProgressBar(progress)}`
-      });
-    },
-    complete: async (finalText) => {
-      clearInterval(interval);
-      await message.client.sendMessage(message.jid, {
-        edit: progressMsg.key,
-        text: `${finalText}\n${createProgressBar(100)}`
-      });
-      return progressMsg;
-    },
-    delete: async () => {
-      clearInterval(interval);
-      await message.client.sendMessage(message.jid, {
-        delete: progressMsg.key
-      });
-    }
-  };
-};
-
-// ගීත විස්තර පණිවිඩය
-const sendSongCard = async (message, song, downloadLinks) => {
-  const details = `
-╭───「 🎵 *${song.title.replace(/[|*_~`]/g, '')}* 」───╮
-│
-│ • 🕒 *Duration:* ${song.timestamp}
-│ • 👀 *Views:* ${song.views}
-│ • 📅 *Uploaded:* ${song.ago}
-│ • 🎤 *Artist:* ${song.author.name}
-│ • 🌐 *Quality:* 128kbps
-│
-╰───「 📥 *Download Options* 」───╯
-
-Reply with number:
-1. 🎧 Audio (MP3)
-2. 📄 Document
-3. 🎬 Video (MP4)`;
-
-  await message.client.sendMessage(message.jid, {
-    image: { url: song.thumbnail },
-    caption: details,
-    footer: "Rasiya MD Music Bot",
-    buttons: [
-      { buttonId: '1', buttonText: { displayText: 'MP3 Audio' }, type: 1 },
-      { buttonId: '2', buttonText: { displayText: 'Document' }, type: 1 },
-      { buttonId: '3', buttonText: { displayText: 'MP4 Video' }, type: 1 }
-    ],
-    headerType: 4
-  });
-};
 
 cmd({
   pattern: "song",
-  desc: "Download music with progress tracking",
+  desc: "Download high quality songs.",
   category: "download",
   react: '🎧',
   filename: __filename
-}, async (message, match) => {
+}, async (messageHandler, context, quotedMessage, { from, reply, q }) => {
   try {
-    if (!match) return await message.reply("🔍 *Please provide a song name or YouTube link*");
+    if (!q) return reply("*පිලිතුරු ගීතයේ නම හෝ YouTube ලින්කුව ලබා දෙන්න* 🎵\n\n_උදා: .song shape of you_");
 
-    // Step 1: Search progress
-    const searchProgress = await showProgress(message, "🔎 *Searching YouTube...*");
-    const searchResults = await yts(match);
+    // Searching animation
+    let searchingMsg = await reply("*🔍 Rasiya Bot ඔබගේ ගීතය සොයමින් සිටී...*");
     
-    if (!searchResults.videos.length) {
-      await searchProgress.complete("❌ *No results found!*");
-      return;
+    // Search for the song
+    const searchResults = await yts(q);
+    if (!searchResults || searchResults.videos.length === 0) {
+      await messageHandler.sendMessage(from, { 
+        delete: searchingMsg.key 
+      });
+      return reply("*මට ඔබගේ ගීතය සොයාගත නොහැකි විය 😔*");
     }
 
-    const song = searchResults.videos[0];
-    await searchProgress.update(`✅ *Found:* ${song.title.substring(0, 50)}`);
+    const songData = searchResults.videos[0];
+    const songUrl = songData.url;
 
-    // Step 2: Download progress
-    const downloadProgress = await showProgress(message, "📥 *Downloading audio...*");
-    
-    try {
-      // Get download links
-      const audioResult = await ddownr.download(song.url, 'mp3');
-      const videoResult = await ddownr.download(song.url, 'mp4');
+    // Delete searching message
+    await messageHandler.sendMessage(from, { 
+      delete: searchingMsg.key 
+    });
 
-      await downloadProgress.complete("⚡ *Processing your request...*");
-      await downloadProgress.delete();
+    // Send song details with progress
+    let progressMessage = await messageHandler.sendMessage(from, {
+      image: { url: songData.thumbnail },
+      caption: `*🎵 Rasiya Music Downloader*\n\n` +
+               `*📌 ගීතය:* ${songData.title}\n` +
+               `*👁‍🗨 බැලීම්:* ${songData.views}\n` +
+               `*⏱ කාලය:* ${songData.timestamp}\n` +
+               `*📅 උඩුගත කලේ:* ${songData.ago}\n` +
+               `*🎤 ගායකයා:* ${songData.author.name}\n\n` +
+               `*⬇️ බාගැනීම ආරම්භ වෙමින්...*\n` +
+               `▱▱▱▱▱▱▱▱▱▱ 0%\n\n` +
+               `_Rasiya Bot © 2024 | Premium Quality_`
+    }, { quoted: quotedMessage });
 
-      // Step 3: Send interactive card
-      await sendSongCard(message, song, {
-        audio: audioResult.downloadUrl,
-        video: videoResult.downloadUrl
+    // Progress update function
+    const updateProgress = async (percentage) => {
+      const progressBar = '▰'.repeat(Math.floor(percentage/10)) + '▱'.repeat(10 - Math.floor(percentage/10));
+      await messageHandler.sendMessage(from, {
+        edit: progressMessage.key,
+        image: { url: songData.thumbnail },
+        caption: `*🎵 Rasiya Music Downloader*\n\n` +
+                 `*📌 ගීතය:* ${songData.title}\n` +
+                 `*👁‍🗨 බැලීම්:* ${songData.views}\n` +
+                 `*⏱ කාලය:* ${songData.timestamp}\n\n` +
+                 `*⬇️ බාගැනීම...*\n` +
+                 `${progressBar} ${percentage}%\n\n` +
+                 `_Rasiya Bot © 2024 | Premium Quality_`
       });
+    };
 
-      // Handle user selection
-      message.client.ev.on('messages.upsert', async ({ messages }) => {
-        const msg = messages[0];
-        if (!msg.message?.buttonsResponseMessage || 
-            msg.message.buttonsResponseMessage.contextInfo.stanzaId !== message.key.id) return;
+    // Simulate download progress
+    for (let i = 10; i <= 100; i += 10) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await updateProgress(i);
+    }
 
-        const choice = msg.message.buttonsResponseMessage.selectedButtonId;
-        let response;
+    // Actual download
+    const result = await ddownr.download(songUrl, 'mp3');
+    const downloadLink = result.downloadUrl;
 
-        switch(choice) {
-          case '1': // MP3 Audio
-            response = await message.client.sendMessage(message.jid, {
-              audio: { url: audioResult.downloadUrl },
-              mimetype: 'audio/mpeg',
-              ptt: false
-            });
-            break;
-            
-          case '2': // Document
-            response = await message.client.sendMessage(message.jid, {
-              document: { url: audioResult.downloadUrl },
-              fileName: `${song.title}.mp3`,
-              mimetype: 'audio/mpeg'
-            });
-            break;
-            
-          case '3': // MP4 Video
-            response = await message.client.sendMessage(message.jid, {
-              video: { url: videoResult.downloadUrl },
-              caption: `🎬 *${song.title}*`
-            });
-            break;
-        }
+    // Uploading animation
+    await updateProgress(100);
+    let uploadingMsg = await messageHandler.sendMessage(from, {
+      edit: progressMessage.key,
+      image: { url: songData.thumbnail },
+      caption: `*🎵 Rasiya Music Downloader*\n\n` +
+               `*📌 ගීතය:* ${songData.title}\n\n` +
+               `*📤 ඔබගේ ගීතය උඩුගත වෙමින්...*\n` +
+               `▰▰▰▰▰▰▰▰▰▰ 100%\n\n` +
+               `_Rasiya Bot © 2024 | Premium Quality_`
+    });
 
-        if (response) {
-          await message.client.sendMessage(message.jid, {
-            react: {
-              text: "✅",
-              key: msg.key
-            }
+    // Simulate upload progress
+    for (let i = 10; i <= 100; i += 10) {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      await messageHandler.sendMessage(from, {
+        edit: uploadingMsg.key,
+        image: { url: songData.thumbnail },
+        caption: `*🎵 Rasiya Music Downloader*\n\n` +
+                 `*📌 ගීතය:* ${songData.title}\n\n` +
+                 `*📤 උඩුගත වෙමින්...*\n` +
+                 `${'▰'.repeat(i/10)}${'▱'.repeat(10-(i/10))} ${i}%\n\n` +
+                 `_Rasiya Bot © 2024 | Premium Quality_`
+      });
+    }
+
+    // Send format options
+    await messageHandler.sendMessage(from, {
+      edit: uploadingMsg.key,
+      image: { url: songData.thumbnail },
+      caption: `*🎵 Rasiya Music Downloader*\n\n` +
+               `*✅ ගීතය සාර්ථකව බාගත්තා!*\n\n` +
+               `*ඔබට අවශ්‍ය ආකෘතිය තෝරන්න:*\n` +
+               `1. 🎧 ගීතය ලෙස (audio)\n` +
+               `2. 📁 ගොනුව ලෙස (document)\n\n` +
+               `_Rasiya Bot © 2024 | Premium Quality_`
+    });
+
+    // Handle user's choice
+    messageHandler.ev.once("messages.upsert", async (update) => {
+      const message = update.messages[0];
+      if (!message.message || !message.message.extendedTextMessage) return;
+
+      const userReply = message.message.extendedTextMessage.text.trim();
+
+      if (message.message.extendedTextMessage.contextInfo.stanzaId === uploadingMsg.key.id) {
+        try {
+          // Downloading animation
+          let sendingMsg = await messageHandler.sendMessage(from, {
+            image: { url: songData.thumbnail },
+            caption: `*🎵 Rasiya Music Downloader*\n\n` +
+                     `*📌 ගීතය:* ${songData.title}\n\n` +
+                     `*📩 ඔබගේ ගීතය යවමින්...*\n` +
+                     `▰▰▰▰▱▱▱▱▱▱ 30%\n\n` +
+                     `_Rasiya Bot © 2024 | Premium Quality_`
           });
-        }
-      });
 
-    } catch (downloadError) {
-      console.error(downloadError);
-      await downloadProgress.complete("❌ *Download failed!* Try again later.");
-    }
+          // Update progress
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          await messageHandler.sendMessage(from, {
+            edit: sendingMsg.key,
+            image: { url: songData.thumbnail },
+            caption: `*🎵 Rasiya Music Downloader*\n\n` +
+                     `*📌 ගීතය:* ${songData.title}\n\n` +
+                     `*📩 යවමින්...*\n` +
+                     `▰▰▰▰▰▰▰▰▱▱ 80%\n\n` +
+                     `_Rasiya Bot © 2024 | Premium Quality_`
+          });
+
+          // Send the actual file
+          switch (userReply) {
+            case '1':
+              await messageHandler.sendMessage(from, {
+                audio: { url: downloadLink },
+                mimetype: "audio/mpeg",
+                contextInfo: {
+                  mentionedJid: [message.message.extendedTextMessage.contextInfo.participant]
+                }
+              }, { quoted: quotedMessage });
+              break;
+            case '2':
+              await messageHandler.sendMessage(from, {
+                document: { url: downloadLink },
+                mimetype: 'audio/mpeg',
+                fileName: `${songData.title}.mp3`,
+                caption: `*🎵 ${songData.title}*\n\n` +
+                         `_Rasiya Bot © 2024 | Premium Quality_`,
+                contextInfo: {
+                  mentionedJid: [message.message.extendedTextMessage.contextInfo.participant]
+                }
+              }, { quoted: quotedMessage });
+              break;
+            default:
+              reply("*❌ වැරදි තේරීමක්! 1 හෝ 2 භාවිතා කරන්න*");
+              return;
+          }
+
+          // Complete message
+          await messageHandler.sendMessage(from, {
+            edit: sendingMsg.key,
+            image: { url: songData.thumbnail },
+            caption: `*🎵 Rasiya Music Downloader*\n\n` +
+                     `*📌 ගීතය:* ${songData.title}\n\n` +
+                     `*✅ ගීතය සාර්ථකව යවන ලදී!*\n\n` +
+                     `_Rasiya Bot © 2024 | Premium Quality_`
+          });
+
+        } catch (error) {
+          console.error(error);
+          reply("*❌ දෝෂයක් ඇතිවිය! නැවත උත්සාහ කරන්න*");
+        }
+      }
+    });
 
   } catch (error) {
     console.error(error);
-    await message.reply("⚠️ *An error occurred!* Please try again.");
+    reply("*❌ දෝෂයක් ඇතිවිය! නැවත උත්සාහ කරන්න*");
   }
 });
