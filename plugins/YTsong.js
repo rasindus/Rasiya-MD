@@ -1,82 +1,182 @@
-
-
-const { cmd, commands } = require('../command');
+const { cmd } = require('../command');
 const yts = require('yt-search');
-const ddownr = require('denethdev-ytmp3'); // Importing the denethdev-ytmp3 package for downloading
+const ddownr = require('denethdev-ytmp3');
+const axios = require('axios');
+
+// ප්‍රගති තීරු උපයෝගී කරයි
+const createProgressBar = (percent, barLength = 20) => {
+  const progress = Math.round((percent / 100) * barLength);
+  return `[${'█'.repeat(progress)}${'░'.repeat(barLength - progress)}] ${percent}%`;
+};
+
+// බාගත කිරීමේ ප්‍රගතිය පෙන්වයි
+const showProgress = async (message, initialText) => {
+  let progress = 0;
+  const progressMsg = await message.reply(`${initialText}\n${createProgressBar(0)}`);
+
+  const interval = setInterval(async () => {
+    progress += (progress < 90 ? Math.floor(Math.random() * 10) + 5 : 1);
+    if (progress > 100) progress = 100;
+
+    try {
+      await message.client.sendMessage(message.jid, {
+        edit: progressMsg.key,
+        text: `${initialText}\n${createProgressBar(progress)}`
+      });
+
+      if (progress === 100) {
+        clearInterval(interval);
+      }
+    } catch (e) {
+      clearInterval(interval);
+    }
+  }, 1500);
+
+  return {
+    update: async (text) => {
+      await message.client.sendMessage(message.jid, {
+        edit: progressMsg.key,
+        text: `${text}\n${createProgressBar(progress)}`
+      });
+    },
+    complete: async (finalText) => {
+      clearInterval(interval);
+      await message.client.sendMessage(message.jid, {
+        edit: progressMsg.key,
+        text: `${finalText}\n${createProgressBar(100)}`
+      });
+      return progressMsg;
+    },
+    delete: async () => {
+      clearInterval(interval);
+      await message.client.sendMessage(message.jid, {
+        delete: progressMsg.key
+      });
+    }
+  };
+};
+
+// ගීත විස්තර පණිවිඩය
+const sendSongCard = async (message, song, downloadLinks) => {
+  const details = `
+╭───「 🎵 *${song.title.replace(/[|*_~`]/g, '')}* 」───╮
+│
+│ • 🕒 *Duration:* ${song.timestamp}
+│ • 👀 *Views:* ${song.views}
+│ • 📅 *Uploaded:* ${song.ago}
+│ • 🎤 *Artist:* ${song.author.name}
+│ • 🌐 *Quality:* 128kbps
+│
+╰───「 📥 *Download Options* 」───╯
+
+Reply with number:
+1. 🎧 Audio (MP3)
+2. 📄 Document
+3. 🎬 Video (MP4)`;
+
+  await message.client.sendMessage(message.jid, {
+    image: { url: song.thumbnail },
+    caption: details,
+    footer: "Rasiya MD Music Bot",
+    buttons: [
+      { buttonId: '1', buttonText: { displayText: 'MP3 Audio' }, type: 1 },
+      { buttonId: '2', buttonText: { displayText: 'Document' }, type: 1 },
+      { buttonId: '3', buttonText: { displayText: 'MP4 Video' }, type: 1 }
+    ],
+    headerType: 4
+  });
+};
 
 cmd({
   pattern: "song",
-  desc: "Download songs.",
+  desc: "Download music with progress tracking",
   category: "download",
   react: '🎧',
   filename: __filename
-}, async (messageHandler, context, quotedMessage, { from, reply, q }) => {
+}, async (message, match) => {
   try {
-    if (!q) return reply("*Please Provide A Song Name or Url 🙄*");
+    if (!match) return await message.reply("🔍 *Please provide a song name or YouTube link*");
+
+    // Step 1: Search progress
+    const searchProgress = await showProgress(message, "🔎 *Searching YouTube...*");
+    const searchResults = await yts(match);
     
-    // Search for the song using yt-search
-    const searchResults = await yts(q);
-    if (!searchResults || searchResults.videos.length === 0) {
-      return reply("*No Song Found Matching Your Query 🧐*");
+    if (!searchResults.videos.length) {
+      await searchProgress.complete("❌ *No results found!*");
+      return;
     }
 
-    const songData = searchResults.videos[0];
-    const songUrl = songData.url;
+    const song = searchResults.videos[0];
+    await searchProgress.update(`✅ *Found:* ${song.title.substring(0, 50)}`);
 
-    // Using denethdev-ytmp3 to fetch the download link
-    const result = await ddownr.download(songUrl, 'mp3'); // Download in mp3 format
-    const downloadLink = result.downloadUrl; // Get the download URL
+    // Step 2: Download progress
+    const downloadProgress = await showProgress(message, "📥 *Downloading audio...*");
+    
+    try {
+      // Get download links
+      const audioResult = await ddownr.download(song.url, 'mp3');
+      const videoResult = await ddownr.download(song.url, 'mp4');
 
-    let songDetailsMessage = `*ＹＯＵＴＵＢＥ ＡＵＤＩＯ ＤＬ*\n\n`;
-    songDetailsMessage += `*⚜ Title:* ${songData.title}\n`;
-    songDetailsMessage += `*👀 Views:* ${songData.views}\n`;
-    songDetailsMessage += `*⏰ Duration:* ${songData.timestamp}\n`;
-    songDetailsMessage += `*📆 Uploaded:* ${songData.ago}\n`;
-    songDetailsMessage += `*📽 Channel:* ${songData.author.name}\n`;
-    songDetailsMessage += `*🖇 URL:* ${songData.url}\n\n`;
-    songDetailsMessage += `*Choose Your Download Format:*\n\n`;
-    songDetailsMessage += `1 || Audio File 🎶\n`;
-    songDetailsMessage += `2 || Document File 📂\n\n`;
-    songDetailsMessage += `> powerd by rasiya md®`;
+      await downloadProgress.complete("⚡ *Processing your request...*");
+      await downloadProgress.delete();
 
-    // Send the video thumbnail with song details
-    const sentMessage = await messageHandler.sendMessage(from, {
-      image: { url: songData.thumbnail },
-      caption: songDetailsMessage,
-    }, { quoted: quotedMessage });
+      // Step 3: Send interactive card
+      await sendSongCard(message, song, {
+        audio: audioResult.downloadUrl,
+        video: videoResult.downloadUrl
+      });
 
-    // Listen for the user's reply to select the download format
-    messageHandler.ev.on("messages.upsert", async (update) => {
-      const message = update.messages[0];
-      if (!message.message || !message.message.extendedTextMessage) return;
+      // Handle user selection
+      message.client.ev.on('messages.upsert', async ({ messages }) => {
+        const msg = messages[0];
+        if (!msg.message?.buttonsResponseMessage || 
+            msg.message.buttonsResponseMessage.contextInfo.stanzaId !== message.key.id) return;
 
-      const userReply = message.message.extendedTextMessage.text.trim();
+        const choice = msg.message.buttonsResponseMessage.selectedButtonId;
+        let response;
 
-      // Handle the download format choice
-      if (message.message.extendedTextMessage.contextInfo.stanzaId === sentMessage.key.id) {
-        switch (userReply) {
-          case '1': // Audio File
-            await messageHandler.sendMessage(from, {
-              audio: { url: downloadLink },
-              mimetype: "audio/mpeg"
-            }, { quoted: quotedMessage });
-            break;
-          case '2': // Document File
-            await messageHandler.sendMessage(from, {
-              document: { url: downloadLink },
+        switch(choice) {
+          case '1': // MP3 Audio
+            response = await message.client.sendMessage(message.jid, {
+              audio: { url: audioResult.downloadUrl },
               mimetype: 'audio/mpeg',
-              fileName: `${songData.title}.mp3`,
-              caption: `${songData.title}\n\n> rasiya md bot®`
-            }, { quoted: quotedMessage });
+              ptt: false
+            });
             break;
-          default:
-            reply("*Invalid Option. Please Select A Valid Option 🙄*");
+            
+          case '2': // Document
+            response = await message.client.sendMessage(message.jid, {
+              document: { url: audioResult.downloadUrl },
+              fileName: `${song.title}.mp3`,
+              mimetype: 'audio/mpeg'
+            });
+            break;
+            
+          case '3': // MP4 Video
+            response = await message.client.sendMessage(message.jid, {
+              video: { url: videoResult.downloadUrl },
+              caption: `🎬 *${song.title}*`
+            });
             break;
         }
-      }
-    });
+
+        if (response) {
+          await message.client.sendMessage(message.jid, {
+            react: {
+              text: "✅",
+              key: msg.key
+            }
+          });
+        }
+      });
+
+    } catch (downloadError) {
+      console.error(downloadError);
+      await downloadProgress.complete("❌ *Download failed!* Try again later.");
+    }
+
   } catch (error) {
     console.error(error);
-    reply("*An Error Occurred While Processing Your Request 😔*");
+    await message.reply("⚠️ *An error occurred!* Please try again.");
   }
 });
