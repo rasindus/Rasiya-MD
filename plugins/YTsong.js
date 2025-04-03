@@ -1,9 +1,3 @@
-/*
-ʀᴀꜱɪʏᴀ ᴍᴘ3 ᴅᴏᴡɴʟᴏᴀᴅᴇʀ ᴘʟᴜɢɪɴ
-ᴄʀᴇᴀᴛᴇᴅ ʙʏ : ʀᴀꜱɪɴᴅᴜ
-ᴘʟᴇᴀꜱᴇ ᴅᴏɴᴛ ʀᴇᴍᴏᴠᴇ ᴏᴡɴᴇʀ ᴄʀᴇᴅɪᴛꜱ
-*/
-
 const { cmd, commands } = require('../command');
 const yts = require('yt-search');
 const ddownr = require('denethdev-ytmp3');
@@ -54,33 +48,13 @@ cmd({
       if (message.message.extendedTextMessage.contextInfo.stanzaId === sentMessage.key.id) {
         switch (userReply) {
           case '1':
-            await messageHandler.sendMessage(from, { text: "⏳ *ශ්‍රව්‍ය ගොනුව බාගත වෙමින් පවතී...*\n\nby rasiya md" }, { quoted: quotedMessage });
-            let progressValue = 0;
-            const progressInterval = setInterval(async () => {
-              progressValue += 25;
-              if (progressValue <= 100) {
-                const progressBar = '▰'.repeat(progressValue / 25) + '▱'.repeat(4 - progressValue / 25);
-                await messageHandler.sendMessage(from, { text: ` *බාගත වෙමින් පවතී...* [${progressBar}] ${progressValue}%\n\nby rasiya md` }, { quoted: quotedMessage });
-              } else {
-                clearInterval(progressInterval);
-              }
-            }, 1000);
+            await messageHandler.sendMessage(from, { text: "⏳ *ශ්‍රව්‍ය ගොනුව බාගත වෙමින් පවතී...* 🇱🇰\n\nby rasiya md" }, { quoted: quotedMessage });
 
             const result = await ddownr.download(songUrl, 'mp3');
-            clearInterval(progressInterval);
 
+            // After downloading, show upload progress in a single message
             setTimeout(async () => {
-              await messageHandler.sendMessage(from, { text: " *ශ්‍රව්‍ය ගොනුව උඩුගත වෙමින් පවතී...*\n\nby rasiya md" }, { quoted: quotedMessage });
-              let uploadProgressValue = 0;
-              const uploadProgressInterval = setInterval(async () => {
-                uploadProgressValue += 25;
-                if (uploadProgressValue <= 100) {
-                  const uploadProgressBar = '▰'.repeat(uploadProgressValue / 25) + '▱'.repeat(4 - uploadProgressValue / 25);
-                  await messageHandler.sendMessage(from, { text: ` *උඩුගත වෙමින් පවතී...* [${uploadProgressBar}] ${uploadProgressValue}%\n\nby rasiya md` }, { quoted: quotedMessage });
-                } else {
-                  clearInterval(uploadProgressInterval);
-                }
-              }, 1000);
+              await messageHandler.sendMessage(from, { text: "⏳ *ශ්‍රව්‍ය ගොනුව උඩුගත වෙමින් පවතී...* 🇱🇰\n\nby rasiya md" }, { quoted: quotedMessage });
 
               await messageHandler.sendMessage(from, {
                 audio: { url: result.uploadUrl || result.downloadUrl },
@@ -88,37 +62,21 @@ cmd({
                 caption: "by rasiya md"
               }, { quoted: quotedMessage });
 
-              clearInterval(uploadProgressInterval);
+              // Bot signature added to the final message
+              await messageHandler.sendMessage(from, {
+                text: `\n🎉 *Bot by Rasiya-MD* 🇱🇰`
+              });
             }, 1000);
             break;
+
           case '2':
-            await messageHandler.sendMessage(from, { text: "⏳ *ලේඛන ගොනුව බාගත වෙමින් පවතී...*\n\nby rasiya md" }, { quoted: quotedMessage });
-            let docProgressValue = 0;
-            const docProgressInterval = setInterval(async () => {
-              docProgressValue += 25;
-              if (docProgressValue <= 100) {
-                const progressBar = '▰'.repeat(docProgressValue / 25) + '▱'.repeat(4 - docProgressValue / 25);
-                await messageHandler.sendMessage(from, { text: ` *බාගත වෙමින් පවතී...* [${progressBar}] ${docProgressValue}%\n\nby rasiya md` }, { quoted: quotedMessage });
-              } else {
-                clearInterval(docProgressInterval);
-              }
-            }, 1000);
+            await messageHandler.sendMessage(from, { text: "⏳ *ලේඛන ගොනුව බාගත වෙමින් පවතී...* 🇱🇰\n\nby rasiya md" }, { quoted: quotedMessage });
 
             const docResult = await ddownr.download(songUrl, 'mp3');
-            clearInterval(docProgressInterval);
 
+            // After downloading, show upload progress in a single message
             setTimeout(async () => {
-              await messageHandler.sendMessage(from, { text: " *ලේඛන ගොනුව උඩුගත වෙමින් පවතී...*\n\nby rasiya md" }, { quoted: quotedMessage });
-              let docUploadProgressValue = 0;
-              const docUploadProgressInterval = setInterval(async () => {
-                docUploadProgressValue += 25;
-                if (docUploadProgressValue <= 100) {
-                  const uploadProgressBar = '▰'.repeat(docUploadProgressValue / 25) + '▱'.repeat(4 - docUploadProgressValue / 25);
-                  await messageHandler.sendMessage(from, { text: ` *උඩුගත වෙමින් පවතී...* [${uploadProgressBar}] ${docUploadProgressValue}%\n\nby rasiya md` }, { quoted: quotedMessage });
-                } else {
-                  clearInterval(docUploadProgressInterval);
-                }
-              }, 1000);
+              await messageHandler.sendMessage(from, { text: "⏳ *ලේඛන ගොනුව උඩුගත වෙමින් පවතී...* 🇱🇰\n\nby rasiya md" }, { quoted: quotedMessage });
 
               await messageHandler.sendMessage(from, {
                 document: { url: docResult.uploadUrl || docResult.downloadUrl },
@@ -126,9 +84,14 @@ cmd({
                 fileName: `${songData.title}.mp3`,
                 caption: `by rasiya md`
               }, { quoted: quotedMessage });
-              clearInterval(docUploadProgressInterval);
+
+              // Bot signature added to the final message
+              await messageHandler.sendMessage(from, {
+                text: `\n🎉 *Bot by Rasiya-MD* 🇱🇰`
+              });
             }, 1000);
             break;
+
           default:
             reply("⚠️ *වලංගු විකල්පයක් තෝරන්න!*");
             break;
