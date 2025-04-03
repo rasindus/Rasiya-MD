@@ -1,53 +1,57 @@
 const { cmd } = require("../command");
 
+
+
 cmd(
   {
-    pattern: ["tiktok", "tt"], // Works with both .tiktok and .tt
-    react: "🎬",
-    desc: "Download TikTok videos without watermark",
+    pattern: ["tiktok", "tt"],
+    react: "⬇️",
+    desc: "Download TikTok videos (no watermark)",
     category: "download",
     filename: __filename,
   },
   async (m, { reply, text }) => {
     try {
-      if (!text) return reply("🔖 *Example:* `.tiktok https://vm.tiktok.com/xxxxxxx`");
+      // Validate input
+      if (!text) return reply("❗ *Example:* `.tiktok https://vm.tiktok.com/xxxxxxx`");
 
-      // Extract TikTok URL from message
+      // Extract URL
       const url = text.match(/(https?:\/\/[^\s]+)/)?.[0];
       if (!url || !url.includes("tiktok.com")) {
-        return reply("❌ Please send a valid TikTok URL");
+        return reply("❗ Invalid TikTok URL. Please provide a valid link.");
       }
 
       // Show processing message
-      const waitMsg = await reply("⏳ Downloading TikTok video...");
+      const processingMsg = await reply("⏳ Downloading TikTok video...");
 
-      // API endpoint
-      const apiUrl = `https://tikdownloader.io/?url=${encodeURIComponent(url)}`;
+      // Use Chathura's API
+      const apiUrl = `https://tiktok-downloader.apis-bj-devs.workers.dev/?url=${encodeURIComponent(url)}`;
       
-      // Fetch video
+      // API request
       const response = await fetch(apiUrl);
       const data = await response.json();
 
-      if (!data.videoUrl) {
-        return reply("❌ Failed to download video. Try again later.");
+      // Validate response
+      if (!data?.status || !data?.data?.play) {
+        return reply("❌ Failed to download video. The URL may be invalid or the API is unavailable.");
       }
 
-      // Send the video
+      // Send video
       await m.sendMessage(
         m.chat,
         {
-          video: { url: data.videoUrl },
-          caption: "🎬 *TikTok Video*\nDownloaded for you!",
+          video: { url: data.data.play },
+          caption: "🎬 *TikTok Video*\nDownloaded successfully!",
         },
         { quoted: m }
       );
 
-      // Delete processing message
-      if (waitMsg) await m.deleteMessage(waitMsg.key);
+      // Clean up processing message
+      if (processingMsg) await m.deleteMessage(processingMsg.key);
 
     } catch (error) {
-      console.error(error);
-      reply("❌ Error downloading video. Please try again.");
+      console.error("[TIKTOK PLUGIN ERROR]", error);
+      reply("❌ An error occurred while processing your request. Please try again later.");
     }
   }
 );
