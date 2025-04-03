@@ -49,8 +49,8 @@ cmd(
         return reply("❌ Please provide a valid TikTok URL.");
       }
 
-      // New API configuration
-      const API_URL = `https://tiktok-downloader.apis-bj-devs.workers.dev/?url=${encodeURIComponent(tiktokUrl)}`;
+      // API configuration using tikwm.com
+      const API_URL = `https://www.tikwm.com/api/?url=${encodeURIComponent(tiktokUrl)}`;
 
       // Notify user of progress
       const processingMsg = await reply("❄️ *Processing TikTok Video Download...*");
@@ -86,7 +86,7 @@ cmd(
       const result = await response.json();
 
       // Detailed response validation
-      if (!result.status || !result.data || !result.data.play) {
+      if (result.code !== 0 || !result.data || !result.data.play) {
         // Try to react with error emoji
         try {
           if (processingMsg && processingMsg.key) {
@@ -102,14 +102,20 @@ cmd(
       // Extract video details
       const videoUrl = result.data.play; // Clean version (no watermark)
       const title = result.data.title || "TikTok Video";
-      const author = result.data.author || "Unknown";
+      const author = result.data.author?.nickname || "Unknown";
       const duration = result.data.duration || "Unknown";
+      const diggCount = result.data.digg_count || 0;
+      const commentCount = result.data.comment_count || 0;
+      const shareCount = result.data.share_count || 0;
 
       // Create a formatted caption
       const caption = `*❄️ CH TIKTOK DOWNLOADER ❄️*\n\n` +
         `🎥 *Title*: ${title}\n` +
         `👤 *Author*: ${author}\n` +
         `⏱️ *Duration*: ${duration}s\n` +
+        `❤️ *Likes*: ${diggCount.toLocaleString()}\n` +
+        `💬 *Comments*: ${commentCount.toLocaleString()}\n` +
+        `🔁 *Shares*: ${shareCount.toLocaleString()}\n` +
         `🔗 *URL*: ${tiktokUrl}\n\n` +
         `*Made with 💙 by CH*`;
 
@@ -170,8 +176,8 @@ cmd(
         return reply("❌ Please provide a valid TikTok URL.");
       }
 
-      // New API configuration
-      const API_URL = `https://tiktok-downloader.apis-bj-devs.workers.dev/?url=${encodeURIComponent(tiktokUrl)}`;
+      // API configuration using tikwm.com
+      const API_URL = `https://www.tikwm.com/api/?url=${encodeURIComponent(tiktokUrl)}`;
 
       // Notify user of progress
       const processingMsg = await reply("❄️ *Processing Watermarked Video Download...*");
@@ -181,7 +187,7 @@ cmd(
       const result = await response.json();
 
       // Check if the response is valid
-      if (!result.status || !result.data || !result.data.wmplay) {
+      if (result.code !== 0 || !result.data || !result.data.wmplay) {
         return reply("❌ Error: Couldn't fetch watermarked video.");
       }
 
@@ -190,7 +196,7 @@ cmd(
         from,
         {
           video: { url: result.data.wmplay },
-          caption: `*❄️ TikTok Watermarked Video ❄️*\n\n🎥 *Author*: ${result.data.author || "Unknown"}\n\n*Made with 💙 by CH*`,
+          caption: `*❄️ TikTok Watermarked Video ❄️*\n\n🎥 *Author*: ${result.data.author?.nickname || "Unknown"}\n\n*Made with 💙 by CH*`,
           mimetype: 'video/mp4'
         },
         { quoted: mek }
@@ -233,8 +239,8 @@ cmd(
         return reply("❌ Please provide a valid TikTok URL.");
       }
 
-      // New API configuration
-      const API_URL = `https://tiktok-downloader.apis-bj-devs.workers.dev/?url=${encodeURIComponent(tiktokUrl)}`;
+      // API configuration using tikwm.com
+      const API_URL = `https://www.tikwm.com/api/?url=${encodeURIComponent(tiktokUrl)}`;
 
       // Notify user of progress
       const processingMsg = await reply("🎵 *Processing Audio Download...*");
@@ -244,13 +250,13 @@ cmd(
       const result = await response.json();
 
       // Check if the response is valid
-      if (!result.status || !result.data || !result.data.music) {
+      if (result.code !== 0 || !result.data || !result.data.music) {
         return reply("❌ Error: Couldn't fetch audio from this TikTok.");
       }
 
       const audioUrl = result.data.music;
-      const title = result.data.title || "TikTok Audio";
-      const author = result.data.author || "Unknown";
+      const title = result.data.music_info?.title || "TikTok Audio";
+      const author = result.data.music_info?.author || result.data.author?.nickname || "Unknown";
 
       // Send the audio
       const audioMsg = await robin.sendMessage(
