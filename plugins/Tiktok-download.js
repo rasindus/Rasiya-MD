@@ -53,7 +53,7 @@ cmd(
       const API_URL = `https://www.tikwm.com/api/?url=${encodeURIComponent(tiktokUrl)}`;
 
       // Notify user of progress
-      const processingMsg = await reply("❄️ *Processing TikTok Video Download...*");
+      const processingMsg = await reply("♻️ *Processing TikTok Video Download...*");
 
       // Handle reactions safely
       try {
@@ -109,7 +109,7 @@ cmd(
       const shareCount = result.data.share_count || 0;
 
       // Create a formatted caption
-      const caption = `*❄️ CH TIKTOK DOWNLOADER ❄️*\n\n` +
+      const caption = `*🫦 RASIYA TIKTOK DOWNLOADER 🫦*\n\n` +
         `🎥 *Title*: ${title}\n` +
         `👤 *Author*: ${author}\n` +
         `⏱️ *Duration*: ${duration}s\n` +
@@ -117,7 +117,7 @@ cmd(
         `💬 *Comments*: ${commentCount.toLocaleString()}\n` +
         `🔁 *Shares*: ${shareCount.toLocaleString()}\n` +
         `🔗 *URL*: ${tiktokUrl}\n\n` +
-        `*Made with 💙 by CH*`;
+        `*Made with Rasiya-MD*`;
 
       // Try to change reaction to success on the processing message
       try {
@@ -180,7 +180,7 @@ cmd(
       const API_URL = `https://www.tikwm.com/api/?url=${encodeURIComponent(tiktokUrl)}`;
 
       // Notify user of progress
-      const processingMsg = await reply("❄️ *Processing Watermarked Video Download...*");
+      const processingMsg = await reply("♻️ *Processing Watermarked Video Download...*");
 
       // Fetch video info from API
       const response = await fetch(API_URL);
@@ -196,7 +196,7 @@ cmd(
         from,
         {
           video: { url: result.data.wmplay },
-          caption: `*❄️ TikTok Watermarked Video ❄️*\n\n🎥 *Author*: ${result.data.author?.nickname || "Unknown"}\n\n*Made with 💙 by CH*`,
+          caption: `*🫦 TikTok Watermarked Video 🫦*\n\n🎥 *Author*: ${result.data.author?.nickname || "Unknown"}\n\n*Made with Rasiya-MD🫦*`,
           mimetype: 'video/mp4'
         },
         { quoted: mek }
@@ -265,7 +265,7 @@ cmd(
           audio: { url: audioUrl },
           mimetype: 'audio/mp4',
           fileName: `${title.replace(/[^\w\s]/gi, '')}.mp3`,
-          caption: `*🎵 TikTok Audio 🎵*\n\n🎵 *Title*: ${title}\n👤 *Artist*: ${author}\n\n*Made with 💙 by CH*`
+          caption: `*🎵 TikTok Audio 🎵*\n\n🎵 *Title*: ${title}\n👤 *Artist*: ${author}\n\n*Made with Rasiya-MD🫦*`
         },
         { quoted: mek }
       );
@@ -296,23 +296,38 @@ cmd(
   },
   async (robin, mek, m, { from, reply }) => {
     try {
-      const helpText = `*❄️ Frozen Queen TikTok Downloader Help ❄️*
+      const helpText = `*♻️ Rasiya bot TikTok Downloader Help ♻️*
 
 *Available Commands:*
+
+✅English✅
+
 • .tiktok [url] - Download TikTok video without watermark
 • .tiktokwm [url] - Download TikTok video with watermark
 • .tiktokaudio [url] - Download TikTok audio only
 • .tikhelp - Show this help message
 
+✅සිංහලෙන්✅
+
+• .tiktok [url] - දිය සලකුණක් නොමැතිව TikTok වීඩියෝව බාගන්න
+• .tiktokwm [url] - දිය සලකුණක් සහිත TikTok වීඩියෝව බාගන්න
+• .tiktoaudio [url] - TikTok ශ්‍රව්‍ය පමණක් බාගන්න
+• .tikhelp - මෙම උදව් පණිවිඩය පෙන්වන්න
+
 *Example:*
-.tiktok https://vm.tiktok.com/XYZABC123
+.tiktok https://vm.tiktok.com/XYZABC12
 
 *Notes:*
 - Make sure to use valid TikTok URLs
 - Videos may take time to download depending on size
 - Some TikTok videos may be protected and can't be downloaded
 
-> *Made BY Frozen Queen team ❄️ *`;
+*සටහන්:*
+- වලංගු TikTok URL භාවිතා කිරීමට වග බලා ගන්න
+- ප්‍රමාණය අනුව වීඩියෝ බාගත කිරීමට කාලය ගත විය හැක
+- සමහර TikTok වීඩියෝ ආරක්ෂිත විය හැකි අතර බාගත කළ නොහැක
+
+> *Made BY Rasiya-MD by rasindu ❤️ *`;
 
       // Send help message with image
       const helpMsg = await robin.sendMessage(from, {
