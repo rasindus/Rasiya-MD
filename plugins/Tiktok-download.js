@@ -7,7 +7,7 @@ const path = require('path');
 cmd({
   pattern: "tiktok",
   alias: ["tt", "ttdl"],
-  desc: "Download high quality TikTok videos",
+  desc: "Download TikTok videos with watermark removed",
   category: "download",
   react: "⬇️",
   filename: __filename
@@ -15,41 +15,41 @@ cmd({
   try {
     // Validate input
     if (!args[0]) {
-      return reply("⚠️ *කරුණාකර TikTok වීඩියෝ URL එකක් ඇතුළත් කරන්න!*\nඋදා: .tt https://vm.tiktok.com/XYZ");
+      return reply("⚠️ *Please provide a TikTok URL!*\nExample: .tt https://vm.tiktok.com/XYZ");
     }
 
     // Validate URL format
-    if (!args[0].match(/tiktok\.com|vm\.tiktok\.com|vt\.tiktok\.com/)) {
-      return reply("❌ *වලංගු නොවන TikTok URL!* ඔබගේ URL නැවත පරීක්ෂා කරන්න.");
+    const tiktokRegex = /(vm|vt|www)\.tiktok\.com|tiktok\.com/;
+    if (!tiktokRegex.test(args[0])) {
+      return reply("❌ *Invalid TikTok URL!* Please check your URL and try again.");
     }
 
-    const processingMsg = await reply("⏳ *TikTok වීඩියෝව විශ්ලේෂණය කරමින්...*");
+    const processingMsg = await reply("⏳ *Processing TikTok video...*");
 
     try {
       // Get TikTok video metadata with timeout
       const meta = await Promise.race([
         getVideoMeta(args[0]),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Request timeout')), 30000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Request timeout after 30 seconds')), 30000))
       ]);
 
-      if (!meta || !meta.collector || meta.collector.length === 0) {
-        throw new Error('No video data found');
+      // Validate response structure
+      if (!meta?.collector?.[0]?.videoUrl) {
+        throw new Error('Invalid TikTok API response structure');
       }
 
       const videoData = meta.collector[0];
       
       // Prepare options message
-      let optionsMsg = `*──────────────────────────────*\n`;
-      optionsMsg += `       *TikTok වීඩියෝව*       \n\n`;
-      optionsMsg += `🎬 *මාතෘකාව:* ${videoData.text || 'නොමැත'}\n`;
-      optionsMsg += `👤 *නිර්මාතෘ:* ${videoData.authorMeta?.name || 'නොදනී'}\n`;
-      optionsMsg += `❤️ *ලයික්:* ${videoData.diggCount?.toLocaleString() || '0'}\n`;
-      optionsMsg += `⏱️ *කාලය:* ${videoData.videoMeta?.duration || 'N/A'}s\n\n`;
-      optionsMsg += `*බාගත කිරීමේ විකල්ප තෝරන්න:*\n\n`;
-      optionsMsg += `1️⃣ - වීඩියෝව (ජල සලකුණු නැතිව)\n`;
-      optionsMsg += `2️⃣ - ශ්‍රව්‍ය පමණක්\n\n`;
-      optionsMsg += `*Rasiya-MD බොට්* 🇱🇰\n`;
-      optionsMsg += `*──────────────────────────────*`;
+      let optionsMsg = `*────── TikTok Video ──────*\n\n`;
+      optionsMsg += `🎬 *Title:* ${videoData.text || 'No title'}\n`;
+      optionsMsg += `👤 *Author:* ${videoData.authorMeta?.name || 'Unknown'}\n`;
+      optionsMsg += `❤️ *Likes:* ${videoData.diggCount?.toLocaleString() || '0'}\n`;
+      optionsMsg += `⏱️ *Duration:* ${videoData.videoMeta?.duration || 'N/A'}s\n\n`;
+      optionsMsg += `*Download Options:*\n\n`;
+      optionsMsg += `1️⃣ - Video (No watermark)\n`;
+      optionsMsg += `2️⃣ - Audio only\n\n`;
+      optionsMsg += `*Rasiya-MD Bot*`;
 
       const sentMessage = await messageHandler.sendMessage(from, {
         image: { url: videoData.covers?.default || '' },
@@ -57,17 +57,21 @@ cmd({
       }, { quoted: quoted });
 
       // Store video data temporarily
-      messageHandler.tiktokTemp = {
+      messageHandler.tiktokTemp = messageHandler.tiktokTemp || {};
+      messageHandler.tiktokTemp[from] = {
         videoUrl: videoData.videoUrl,
         audioUrl: videoData.musicMeta?.musicUrl,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        messageId: sentMessage.key.id
       };
 
       // Set up response handler
-      const responseHandler = async (message) => {
-        if (!message.message?.extendedTextMessage || 
+      const handleResponse = async (update) => {
+        const message = update.messages?.[0];
+        if (!message || 
             message.key.remoteJid !== from ||
-            message.message.extendedTextMessage.contextInfo.stanzaId !== sentMessage.key.id) {
+            !message.message?.extendedTextMessage ||
+            message.message.extendedTextMessage.contextInfo?.stanzaId !== messageHandler.tiktokTemp[from]?.messageId) {
           return;
         }
 
@@ -75,18 +79,20 @@ cmd({
         
         try {
           if (!['1', '2'].includes(userChoice)) {
-            await reply("⚠️ *වලංගු නොවන තේරීම! කරුණාකර 1 හෝ 2 ලෙස යොමු කරන්න.*");
+            await reply("⚠️ *Invalid choice! Please reply with 1 or 2*");
             return;
           }
 
-          await reply("⏳ *ඔබගේ ඉල්ලීම සකසමින්...*");
+          await reply("⏳ *Processing your request...*");
 
-          const downloadType = userChoice === '1' ? 'video' : 'audio';
-          const filePath = path.join(__dirname, '../temp', `tiktok_${Date.now()}.${downloadType === 'video' ? 'mp4' : 'mp3'}`);
-          const downloadUrl = downloadType === 'video' ? messageHandler.tiktokTemp.videoUrl : messageHandler.tiktokTemp.audioUrl;
+          const { videoUrl, audioUrl } = messageHandler.tiktokTemp[from];
+          const downloadUrl = userChoice === '1' ? videoUrl : audioUrl;
+          const fileType = userChoice === '1' ? 'video' : 'audio';
+          const fileExt = userChoice === '1' ? 'mp4' : 'mp3';
+          const tempFile = path.join(__dirname, '../temp', `tiktok_${Date.now()}.${fileExt}`);
 
           // Download the file
-          const writer = fs.createWriteStream(filePath);
+          const writer = fs.createWriteStream(tempFile);
           const response = await axios({
             method: 'get',
             url: downloadUrl,
@@ -98,53 +104,57 @@ cmd({
 
           await new Promise((resolve, reject) => {
             writer.on('finish', resolve);
-            writer.on('error', reject);
+            writer.on('error', () => reject(new Error('Download failed')));
           });
 
           // Send the file
-          if (downloadType === 'video') {
+          if (fileType === 'video') {
             await messageHandler.sendMessage(from, {
-              video: fs.readFileSync(filePath),
-              caption: `🎬 *TikTok වීඩියෝව*\n👤 ${videoData.authorMeta?.name || ''}\n\n*Rasiya-MD* 🇱🇰`
+              video: fs.readFileSync(tempFile),
+              caption: `🎬 *TikTok Video*\n\n*Rasiya-MD Bot*`
             }, { quoted: quoted });
           } else {
             await messageHandler.sendMessage(from, {
-              audio: fs.readFileSync(filePath),
+              audio: fs.readFileSync(tempFile),
               mimetype: 'audio/mpeg',
               ptt: false,
-              caption: `🎵 *TikTok ශ්‍රව්‍යය*\n👤 ${videoData.authorMeta?.name || ''}\n\n*Rasiya-MD* 🇱🇰`
+              caption: `🎵 *TikTok Audio*\n\n*Rasiya-MD Bot*`
             }, { quoted: quoted });
           }
 
-          // Clean up
-          fs.unlinkSync(filePath);
-
         } catch (error) {
           console.error('Download error:', error);
-          await reply("❌ *බාගත කිරීමේදී දෝෂයක් ඇතිවිය!*");
+          await reply("❌ *Download failed!* Please try again later.");
         } finally {
-          // Remove listener after processing
-          messageHandler.ev.off('messages.upsert', responseHandler);
+          // Clean up
+          if (fs.existsSync(tempFile)) {
+            fs.unlinkSync(tempFile);
+          }
+          delete messageHandler.tiktokTemp[from];
+          messageHandler.ev.off('messages.upsert', handleResponse);
         }
       };
 
-      // Add listener for user response
-      messageHandler.ev.on('messages.upsert', responseHandler);
+      // Add listener
+      messageHandler.ev.on('messages.upsert', handleResponse);
 
-      // Set timeout to remove listener if no response
+      // Auto-remove listener after 2 minutes
       setTimeout(() => {
-        messageHandler.ev.off('messages.upsert', responseHandler);
-      }, 60000);
+        if (messageHandler.tiktokTemp[from]) {
+          delete messageHandler.tiktokTemp[from];
+          messageHandler.ev.off('messages.upsert', handleResponse);
+        }
+      }, 120000);
 
     } catch (error) {
-      console.error('Metadata error:', error);
-      throw new Error('වීඩියෝ තොරතුරු ලබා ගැනීමට අසමත් විය');
+      console.error('API error:', error);
+      throw new Error('Failed to get video information from TikTok');
     } finally {
       await messageHandler.deleteMessage(from, processingMsg.key);
     }
 
   } catch (error) {
     console.error('Main error:', error);
-    reply(`❌ *දෝෂය:* ${error.message || 'වීඩියෝව ලබා ගැනීමේදී දෝෂයක් ඇතිවිය!'}`);
+    reply(`❌ *Error:* ${error.message || 'Failed to process TikTok video'}`);
   }
 });
