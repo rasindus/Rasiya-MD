@@ -1,181 +1,141 @@
+const { cmd } = require('../command');
 const { getVideoMeta } = require('tiktok-scraper');
-const fs = require('fs-extra');
 const axios = require('axios');
+const fs = require('fs');
 const path = require('path');
 
-module.exports = {
-  name: "tt",
-  alias: ["tiktok", "ttdl"],
-  desc: "Download TikTok videos with interactive options",
-  category: "Downloads",
-  usage: "tt <TikTok URL>",
+cmd({
+  pattern: "tiktok",
+  alias: ["tt", "ttdl"],
+  desc: "Download TikTok videos with options",
+  category: "download",
   react: "⬇️",
-  start: async (RasiyaMD, m, { text, args }) => {
-    if (!args[0]) {
-      return RasiyaMD.sendMessage(m.from, {
-        text: `🔍 *TikTok Downloader*\n\nඔබගේ TikTok URL ඇතුළත් කරන්න\nඋදාහරණය: *!tt https://vm.tiktok.com/XYZ*`
-      }, { quoted: m });
-    }
+  filename: __filename
+}, async (messageHandler, { from, reply, quoted, args }) => {
+  try {
+    if (!args[0]) return reply("⚠️ *කරුණාකර TikTok වීඩියෝ URL එකක් ඇතුළත් කරන්න!*\nඋදා: .tt https://vm.tiktok.com/XYZ");
 
-    try {
-      const processingMsg = await RasiyaMD.sendMessage(m.from, {
-        text: "⏳ TikTok වීඩියෝව විශ්ලේෂණය කරමින්..."
-      }, { quoted: m });
+    const processingMsg = await reply("⏳ *TikTok වීඩියෝව විශ්ලේෂණය කරමින්...*");
 
-      // Get video metadata
-      const meta = await getVideoMeta(args[0]);
-      const videoData = meta.collector[0];
-      
-      // Prepare options
-      const options = {
-        1: { text: "🎥 වීඩියෝව ඩවුන්ලෝඩ් කරන්න (ජල සලකුණු නැත)", type: "video" },
-        2: { text: "🔈 ශ්‍රව්‍ය ගොනුව පමණක් ඩවුන්ලෝඩ් කරන්න", type: "audio" },
-        3: { text: "📋 වීඩියෝ තොරතුරු පමණක් ලබා ගන්න", type: "info" },
-        4: { text: "✨ සියල්ල ලබා ගන්න (වීඩියෝ, ශ්‍රව්‍ය, තොරතුරු)", type: "all" }
-      };
+    // Get TikTok video metadata
+    const meta = await getVideoMeta(args[0]);
+    const videoData = meta.collector[0];
+    
+    // Prepare options message
+    let optionsMsg = `*──────────────────────────────*\n`;
+    optionsMsg += `       *TikTok වීඩියෝව*       \n\n`;
+    optionsMsg += `🎬 *මාතෘකාව:* ${videoData.text || 'නොමැත'}\n`;
+    optionsMsg += `👤 *නිර්මාතෘ:* ${videoData.authorMeta.name}\n`;
+    optionsMsg += `❤️ *ලයික්:* ${videoData.diggCount.toLocaleString()}\n`;
+    optionsMsg += `💬 *අදහස්:* ${videoData.commentCount.toLocaleString()}\n`;
+    optionsMsg += `⏱️ *කාලය:* ${videoData.videoMeta.duration}s\n\n`;
+    optionsMsg += `*බාගත කිරීමේ විකල්ප තෝරන්න:*\n\n`;
+    optionsMsg += `1️⃣ - වීඩියෝව (ජල සලකුණු නැතිව)\n`;
+    optionsMsg += `2️⃣ - ශ්‍රව්‍ය පමණක්\n`;
+    optionsMsg += `3️⃣ - විස්තර පමණක්\n\n`;
+    optionsMsg += `*Rasiya-MD බොට්* 🇱🇰\n`;
+    optionsMsg += `*──────────────────────────────*`;
 
-      // Send options menu
-      let optionsText = "📱 *TikTok Download Options*\n\n";
-      Object.keys(options).forEach(num => {
-        optionsText += `${num}. ${options[num].text}\n`;
-      });
-      optionsText += "\nඔබට අවශ්‍ය විකල්පයේ අංකය යොමු කරන්න (1-4)";
+    const sentMessage = await messageHandler.sendMessage(from, {
+      image: { url: videoData.covers.default },
+      caption: optionsMsg
+    }, { quoted: quoted });
 
-      await RasiyaMD.sendMessage(m.from, { text: optionsText }, { quoted: m });
+    // Store video data temporarily
+    messageHandler.tiktokData = messageHandler.tiktokData || {};
+    messageHandler.tiktokData[from] = {
+      videoUrl: videoData.videoUrl,
+      audioUrl: videoData.musicMeta.musicUrl,
+      metadata: {
+        title: videoData.text,
+        author: videoData.authorMeta.name,
+        duration: videoData.videoMeta.duration
+      },
+      timestamp: Date.now()
+    };
 
-      // Store video data temporarily
-      RasiyaMD.tiktokTemp = RasiyaMD.tiktokTemp || {};
-      RasiyaMD.tiktokTemp[m.from] = {
-        videoUrl: videoData.videoUrl,
-        audioUrl: videoData.musicMeta.musicUrl,
-        metadata: {
-          author: videoData.authorMeta.name,
-          description: videoData.text,
-          likes: videoData.diggCount,
-          comments: videoData.commentCount,
-          shares: videoData.shareCount,
-          duration: videoData.videoMeta.duration
-        },
-        timestamp: Date.now()
-      };
+    // Delete processing message
+    await messageHandler.deleteMessage(from, processingMsg.key);
 
-      // Delete processing message
-      await RasiyaMD.deleteMessage(m.from, processingMsg.key);
+    // Handle user response
+    messageHandler.ev.on("messages.upsert", async (update) => {
+      const message = update.messages[0];
+      if (!message.message || !message.message.extendedTextMessage) return;
 
-      // Handle user selection
-      RasiyaMD.on('message_create', async (msg) => {
-        if (msg.from === m.from && 
-            RasiyaMD.tiktokTemp[m.from] && 
-            Date.now() - RasiyaMD.tiktokTemp[m.from].timestamp < 60000) {
-          
-          const choice = parseInt(msg.body);
-          if (choice >= 1 && choice <= 4) {
-            const { videoUrl, audioUrl, metadata } = RasiyaMD.tiktokTemp[m.from];
-            
-            try {
-              await RasiyaMD.sendMessage(m.from, {
-                text: `⚙️ ${options[choice].text}...`
-              }, { quoted: m });
+      const userReply = message.message.extendedTextMessage.text.trim();
+      const context = message.message.extendedTextMessage.contextInfo;
 
-              switch(choice) {
-                case 1:
-                  await sendVideo(RasiyaMD, m, videoUrl, metadata);
-                  break;
-                case 2:
-                  await sendAudio(RasiyaMD, m, audioUrl, metadata);
-                  break;
-                case 3:
-                  await sendInfo(RasiyaMD, m, metadata);
-                  break;
-                case 4:
-                  await sendInfo(RasiyaMD, m, metadata);
-                  await sendVideo(RasiyaMD, m, videoUrl, metadata);
-                  await sendAudio(RasiyaMD, m, audioUrl, metadata);
-                  break;
-              }
-            } catch (error) {
-              console.error(error);
-              await RasiyaMD.sendMessage(m.from, {
-                text: `❌ දෝෂය: ${error.message}`
-              }, { quoted: m });
-            } finally {
-              delete RasiyaMD.tiktokTemp[m.from];
-            }
-          }
+      if (context.stanzaId === sentMessage.key.id) {
+        const { videoUrl, audioUrl, metadata } = messageHandler.tiktokData[from] || {};
+
+        if (!videoUrl) {
+          return reply("❌ *සැසිය කල් ඉකුත් වී ඇත! නැවත උත්සාහ කරන්න.*");
         }
-      });
 
-    } catch (error) {
-      console.error(error);
-      await RasiyaMD.sendMessage(m.from, {
-        text: `❌ දෝෂය: ${error.message}\n\nURL එක නැවත පරීක්ෂා කරන්න හෝ පසුව උත්සාහ කරන්න`
-      }, { quoted: m });
-    }
+        try {
+          switch(userReply) {
+            case '1': // Video download
+              await reply("⏳ *වීඩියෝව බාගත කරමින්...*");
+              
+              const videoPath = path.join(__dirname, '../temp', `tiktok_${Date.now()}.mp4`);
+              const writer = fs.createWriteStream(videoPath);
+              const videoResponse = await axios.get(videoUrl, { responseType: 'stream' });
+              videoResponse.data.pipe(writer);
+
+              await new Promise((resolve, reject) => {
+                writer.on('finish', resolve);
+                writer.on('error', reject);
+              });
+
+              await messageHandler.sendMessage(from, {
+                video: fs.readFileSync(videoPath),
+                caption: `🎬 *${metadata.title || 'TikTok වීඩියෝව'}*\n👤 ${metadata.author}\n⏱️ ${metadata.duration}s\n\n*Rasiya-MD* 🇱🇰`
+              }, { quoted: quoted });
+
+              fs.unlinkSync(videoPath);
+              break;
+
+            case '2': // Audio only
+              await reply("⏳ *ශ්‍රව්‍ය ගොනුව බාගත කරමින්...*");
+              
+              const audioPath = path.join(__dirname, '../temp', `tiktok_audio_${Date.now()}.mp3`);
+              const audioWriter = fs.createWriteStream(audioPath);
+              const audioResponse = await axios.get(audioUrl, { responseType: 'stream' });
+              audioResponse.data.pipe(audioWriter);
+
+              await new Promise((resolve, reject) => {
+                audioWriter.on('finish', resolve);
+                audioWriter.on('error', reject);
+              });
+
+              await messageHandler.sendMessage(from, {
+                audio: fs.readFileSync(audioPath),
+                mimetype: 'audio/mpeg',
+                ptt: false,
+                caption: `🎵 *TikTok ශ්‍රව්‍යය*\n👤 ${metadata.author}\n⏱️ ${metadata.duration}s\n\n*Rasiya-MD* 🇱🇰`
+              }, { quoted: quoted });
+
+              fs.unlinkSync(audioPath);
+              break;
+
+            case '3': // Info only
+              await reply("ℹ️ *වීඩියෝ විස්තර ලබා දෙමින්...*");
+              break;
+
+            default:
+              await reply("⚠️ *වලංගු විකල්පයක් තෝරන්න! (1, 2 හෝ 3)*");
+              return;
+          }
+        } catch (error) {
+          console.error(error);
+          reply("❌ *බාගත කිරීමේදී දෝෂයක් ඇතිවිය!*");
+        } finally {
+          delete messageHandler.tiktokData[from];
+        }
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    reply("❌ *වීඩියෝව ලබා ගැනීමේදී දෝෂයක් ඇතිවිය!*");
   }
-};
-
-// Helper functions
-async function sendVideo(RasiyaMD, m, url, meta) {
-  const response = await axios.get(url, { responseType: 'stream' });
-  const tempFile = path.join(__dirname, `../temp/tt_${Date.now()}.mp4`);
-  const writer = fs.createWriteStream(tempFile);
-  response.data.pipe(writer);
-
-  await new Promise((resolve, reject) => {
-    writer.on('finish', resolve);
-    writer.on('error', reject);
-  });
-
-  const caption = `🎬 *${meta.author}*\n${meta.description || ''}\n\n❤️ ${meta.likes} | 💬 ${meta.comments} | ↗️ ${meta.shares}`;
-
-  await RasiyaMD.sendMessage(
-    m.from,
-    {
-      video: fs.readFileSync(tempFile),
-      caption: caption,
-      gifPlayback: false
-    },
-    { quoted: m }
-  );
-
-  fs.unlinkSync(tempFile);
-}
-
-async function sendAudio(RasiyaMD, m, url, meta) {
-  const response = await axios.get(url, { responseType: 'stream' });
-  const tempFile = path.join(__dirname, `../temp/tt_${Date.now()}.mp3`);
-  const writer = fs.createWriteStream(tempFile);
-  response.data.pipe(writer);
-
-  await new Promise((resolve, reject) => {
-    writer.on('finish', resolve);
-    writer.on('error', reject);
-  });
-
-  const caption = `🎵 ${meta.author} - TikTok Audio`;
-
-  await RasiyaMD.sendMessage(
-    m.from,
-    {
-      audio: fs.readFileSync(tempFile),
-      mimetype: 'audio/mpeg',
-      ptt: false,
-      caption: caption
-    },
-    { quoted: m }
-  );
-
-  fs.unlinkSync(tempFile);
-}
-
-async function sendInfo(RasiyaMD, m, meta) {
-  const infoText = `📋 *TikTok Video Info*\n\n` +
-                 `👤 *Author:* ${meta.author}\n` +
-                 `📝 *Description:* ${meta.description || 'N/A'}\n` +
-                 `⏱️ *Duration:* ${meta.duration}s\n` +
-                 `❤️ *Likes:* ${meta.likes.toLocaleString()}\n` +
-                 `💬 *Comments:* ${meta.comments.toLocaleString()}\n` +
-                 `↗️ *Shares:* ${meta.shares.toLocaleString()}`;
-
-  await RasiyaMD.sendMessage(m.from, { text: infoText }, { quoted: m });
-}
+});
