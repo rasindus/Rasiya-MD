@@ -33,7 +33,6 @@
     "fs": "^0.0.1-security",
     "moment-timezone": "^0.5.48",
     "denethdev-ytmp3": "^1.0.3",
-    "tiktok-scraper": "^1.4.36",
     "google-tts-api": "^2.0.2",
     "node-fetch": "^2.6.7"
     
