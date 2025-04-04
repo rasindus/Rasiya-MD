@@ -33,7 +33,7 @@
     "fs": "^0.0.1-security",
     "moment-timezone": "^0.5.48",
     "denethdev-ytmp3": "^1.0.3",
-    "google-tts-api": "^2.0.2",
+    "google-translate-api": "^2.3.0",
     "node-fetch": "^2.6.7"
     
   }
