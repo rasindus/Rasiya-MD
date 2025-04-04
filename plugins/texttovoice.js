@@ -1,80 +1,65 @@
-const fs = require('fs');
-const path = require('path');
-const { GoogleTTS } = require('google-tts-api'); // වඩාත් ස්ථායී පුස්තකාලයක්
+const fs = require('fs')
+const path = require('path')
+const gtts = require('google-tts-api')
+const fetch = require('node-fetch')
 
 module.exports = {
     name: "tts",
-    alias: ["texttospeech", "voice"],
-    desc: "Convert text to voice message",
+    alias: ["voice", "say"],
+    desc: "Text to Speech Converter",
     category: "Utility",
-    usage: `tts <text> or tts <language code> <text>`,
-    react: "🎤",
-    start: async (Rasiya, m, { text, prefix, args }) => {
+    usage: `.tts <text> OR .tts <lang> <text>`,
+    react: "🔊",
+    start: async (robin, mek, m, { text, args, reply }) => {
         try {
-            // Validate input
-            if (!text && args.length === 0) {
-                return await m.reply(`Please provide text to convert!\nExample: *${prefix}tts Hello World* or *${prefix}tts si ආයුබෝවන්*`);
-            }
+            // Check if text exists
+            if (!text) return reply(`උදාහරණය: *.tts en Hello* හෝ *.tts si ආයුබෝවන්*`)
 
-            // Create temp directory if not exists
-            const tempDir = './tmp';
-            if (!fs.existsSync(tempDir)) {
-                fs.mkdirSync(tempDir, { recursive: true });
-            }
-
-            // Determine language and text
-            let lang = 'en'; // Default language
-            let actualText = text;
+            // Language handling (default: English)
+            let lang = 'en'
+            let speechText = text
             
-            // Check if first argument is a language code (2 letters)
-            if (args.length > 1 && /^[a-z]{2}$/i.test(args[0])) {
-                lang = args[0].toLowerCase();
-                actualText = args.slice(1).join(' ');
+            // If first argument is 2-letter language code
+            if (args[0] && args[0].match(/^[a-z]{2}$/i)) {
+                lang = args.shift().toLowerCase()
+                speechText = args.join(' ')
             }
 
-            // Validate text length
-            if (actualText.length > 500) {
-                return await m.reply('Text is too long! Maximum 500 characters allowed.');
-            }
+            // Validate length
+            if (speechText.length > 500) return reply('*Error:* Text must be under 500 characters!')
 
-            if (actualText.length === 0) {
-                return await m.reply('Please provide valid text to convert.');
-            }
+            // Get TTS audio URL
+            const audioUrl = gtts.getAudioUrl(speechText, {
+                lang: lang,
+                slow: false,
+                host: 'https://translate.google.com'
+            })
 
-            // Generate unique filename
-            const fileName = path.join(tempDir, `tts_${m.id}_${Date.now()}.mp3`);
+            // Create temp folder
+            const tempDir = './temp'
+            if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true })
 
-            // Create TTS audio
-            const tts = new GoogleTTS(actualText, lang);
-            
-            await new Promise((resolve, reject) => {
-                tts.save(fileName, (err) => {
-                    if (err) {
-                        fs.unlinkSync(fileName).catch(() => {});
-                        reject(new Error('TTS conversion failed'));
-                    } else {
-                        resolve();
-                    }
-                });
-            });
+            // Download audio
+            const response = await fetch(audioUrl)
+            const audioBuffer = await response.buffer()
+            const filePath = path.join(tempDir, `tts_${m.id}.mp3`)
 
-            // Send audio message
-            await Rasiya.sendMessage(
-                m.from,
-                {
-                    audio: fs.readFileSync(fileName),
-                    mimetype: 'audio/mpeg',
-                    ptt: true
-                },
-                { quoted: m }
-            );
+            // Save file
+            fs.writeFileSync(filePath, audioBuffer)
 
-            // Clean up
-            fs.unlinkSync(fileName);
+            // Send as audio message
+            await robin.sendMessage(m.from, { 
+                audio: fs.readFileSync(filePath), 
+                mimetype: 'audio/mpeg',
+                ptt: true 
+            }, { quoted: mek })
 
-        } catch (error) {
-            console.error('TTS Error:', error);
-            await m.reply('Sorry, an error occurred while processing your TTS request. Please try again later.');
+            // Delete temp file
+            fs.unlinkSync(filePath)
+
+        } catch (err) {
+            console.error('TTS Error:', err)
+            reply('Error: TTS service failed. Try again later.')
         }
     }
-};
+}
