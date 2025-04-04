@@ -1,4 +1,4 @@
-const translate = require('google-translate-api');
+const translate = require('@vitalets/google-translate-api');
 const fs = require('fs');
 
 module.exports = {
@@ -10,54 +10,82 @@ module.exports = {
     react: "🌐",
     start: async (robin, m, { text, args, reply }) => {
         try {
-            if (!text || args.length < 2) {
-                return reply(`❌ උදාහරණ:\n*.tr en ආයුබෝවන්* (English)\n*.tr si_ja Hello* (Sinhala to Japanese)`);
+            // Help message if no text
+            if (!text || args.length < 1) {
+                const helpMsg = [
+                    "🌍 *Rasiya Translator Help*",
+                    "",
+                    "Usage:",
+                    "• `.tr en ආයුබෝවන්` - Sinhala → English",
+                    "• `.tr si_ja Hello` - English → Sinhala → Japanese",
+                    "",
+                    "Supported language codes:",
+                    "si - Sinhala | en - English | ta - Tamil",
+                    "ja - Japanese | ko - Korean | fr - French",
+                    "",
+                    "Example: `.tr en ආයුබෝවන්`"
+                ].join('\n');
+                return reply(helpMsg);
             }
 
             // Parse language codes
-            let [langCodes, ...content] = args;
+            let langCodes = args[0];
             let sourceLang = 'auto';
             let targetLang = langCodes;
+            let content = args.slice(1).join(' ');
 
-            // Check for source_target format (si_en)
+            // Check for source_target format
             if (langCodes.includes('_')) {
                 [sourceLang, targetLang] = langCodes.split('_');
             }
 
-            const originalText = content.join(' ');
-
-            // Validate language codes
+            // Validate input
+            if (!content) return reply("Please provide text to translate!");
             if (!targetLang || targetLang.length !== 2) {
-                return reply('⚠️ Invalid language code! Use 2-letter codes like en, si, ja');
+                return reply("Invalid language code! Use 2-letter codes like en, si, ja");
             }
 
-            // Translation with progress message
-            const processingMsg = await reply('🔄 Translating...');
+            // Start translation
+            const processingMsg = await reply("🔄 Translating...");
             
-            const result = await translate(originalText, {
-                from: sourceLang,
-                to: targetLang
-            });
-
-            // Format response
-            const translation = `🌍 *Translation Result*\n\n` +
-                               `📜 *Original* (${result.from.language.iso}):\n${originalText}\n\n` +
-                               `🔄 *Translated* (${targetLang}):\n${result.text}\n\n` +
-                               `🔍 *Pronunciation*: ${result.pronunciation || 'N/A'}\n\n` +
-                               `_Powered by Rasiya-MD_`;
-
-            // Delete processing message
-            if (processingMsg && processingMsg.key) {
-                await robin.sendMessage(m.from, { 
-                    delete: processingMsg.key 
+            try {
+                const result = await translate(content, {
+                    from: sourceLang,
+                    to: targetLang
                 });
-            }
 
-            await reply(translation);
+                // Format response
+                const translation = [
+                    `📜 *Original* (${result.from.language.iso}):`,
+                    `${content}\n`,
+                    `🔄 *Translated* (${targetLang}):`,
+                    `${result.text}\n`,
+                    `🔊 *Pronunciation*: ${result.pronunciation || 'N/A'}`,
+                    `_Powered by Rasiya-MD_`
+                ].join('\n');
+
+                // Delete processing message
+                if (processingMsg && processingMsg.key) {
+                    await robin.sendMessage(m.from, { 
+                        delete: processingMsg.key 
+                    });
+                }
+
+                await reply(translation);
+
+            } catch (err) {
+                console.error('Translation error:', err);
+                if (processingMsg && processingMsg.key) {
+                    await robin.sendMessage(m.from, { 
+                        delete: processingMsg.key 
+                    });
+                }
+                reply("❌ Translation failed. Please check the language codes and try again.");
+            }
 
         } catch (err) {
-            console.error('Translation error:', err);
-            reply('❌ Translation failed. Check language codes or try again later.');
+            console.error('Module error:', err);
+            reply("❌ An error occurred. Please check if all dependencies are installed.");
         }
     }
 }
