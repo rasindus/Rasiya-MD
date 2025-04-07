@@ -7,6 +7,18 @@ const {
   fetchLatestBaileysVersion,
   Browsers,
 } = require("@whiskeysockets/baileys");
+// index.js හි...
+const { setupTranslatePlugin } = require('./translate-plugin');
+
+// WhatsApp Client ආරම්භ කිරීම
+const client = new Client({ 
+    authStrategy: new LocalAuth({ dataPath: './session' }) 
+});
+
+// ප්ලගින් එක සක්‍රීය කරන්න
+setupTranslatePlugin(client);
+
+client.initialize();
 
 const l = console.log;
 const {
