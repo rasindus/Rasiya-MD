@@ -1,4 +1,4 @@
-const {
+Const {
   default: makeWASocket,
   useMultiFileAuthState,
   DisconnectReason,
@@ -10,9 +10,12 @@ const {
 // index.js හි...
 const { setupTranslatePlugin } = require('./translate-plugin');
 
+// ටෙම්ප් මේල් ප්ලගින් එක Import කරන්න
+const { handleTempMailRequest } = require('./tempmail_plugin');
+
 // WhatsApp Client ආරම්භ කිරීම
-const client = new Client({ 
-    authStrategy: new LocalAuth({ dataPath: './session' }) 
+const client = new Client({
+    authStrategy: new LocalAuth({ dataPath: './session' })
 });
 
 // ප්ලගින් එක සක්‍රීය කරන්න
@@ -127,7 +130,7 @@ async function connectToWA() {
       getContentType(mek.message) === "ephemeralMessage"
         ? mek.message.ephemeralMessage.message
         : mek.message;
-    //Auto read status - index.js 
+    //Auto read status - index.js
 
 if (
       mek.key &&
@@ -153,7 +156,6 @@ if (
         : type == "imageMessage" && mek.message.imageMessage.caption
         ? mek.message.imageMessage.caption
         : type == "videoMessage" && mek.message.videoMessage.caption
-        ? mek.message.videoMessage.caption
         : "";
     const isCmd = body.startsWith(prefix);
     const command = isCmd
@@ -297,6 +299,13 @@ if (
         }
       }
     }
+
+    // ටෙම්ප් මේල් විධානය හසුරුවන්න
+    if (body === '.tempmail') {
+      handleTempMailRequest(robin, from);
+      return; // අනිත් විධාන වලට යන්නෙ නැතුව මෙතනින් ඉවර කරන්න
+    }
+
     events.commands.map(async (command) => {
       if (body && command.on === "body") {
         command.function(robin, mek, m, {
