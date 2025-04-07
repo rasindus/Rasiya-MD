@@ -1,40 +1,35 @@
-const { translate } = require('@vitalets/google-translate-api');
+const axios = require('axios');
 
-module.exports = {
-    name: "tr",
-    alias: ["translate"],
-    desc: "පාඨයක් භාෂාවකින් තවත් භාෂාවකට පරිවර්තනය කරයි",
-    category: "Utility",
-    usage: `.tr en ආයුබෝවන්`,
-    react: "🌐",
-    start: async (m, { text, args, reply }) => {
-        try {
-            // උදව් පණිවුඩය
-            if (!text) {
-                return reply(`📝 *භාවිතය:*\n.tr <භාෂා කේතය> <පාඨය>\n\nඋදා:\n.tr en ආයුබෝවන්\n.tr ja Hello\n\nසහාය දක්වන භාෂා:\nen - ඉංග්‍රීසි\nsi - සිංහල\nta - දෙමළ\nja - ජපන්`);
-            }
-
-            const [lang, ...content] = args;
-            const inputText = content.join(' ');
-
-            if (!lang || !inputText) {
-                return reply('❌ භාෂා කේතය හෝ පාඨය අඩුයි!');
-            }
-
-            if (lang.length !== 2) {
-                return reply('⚠️ භාෂා කේතය 2 අකුරු විය යුතුය (en, si, ja)');
-            }
-
-            const result = await translate(inputText, { to: lang });
-
-            await reply(`🌍 *පරිවර්තන ප්‍රතිඵලය*\n\n` +
-                       `📜 මුල් පාඨය (${result.from.language.iso}):\n${inputText}\n\n` +
-                       `🔄 පරිවර්තනය (${lang}):\n${result.text}\n\n` +
-                       `🔊 උච්චාරණය: ${result.pronunciation || 'N/A'}`);
-
-        } catch (error) {
-            console.error('පරිවර්තන දෝෂය:', error);
-            reply('❌ පරිවර්තනය අසාර්ථක විය. කරුණාකර නැවත උත්සාහ කරන්න.');
-        }
+// පරිවර්තන සේවාව - Google Translate API
+async function translate(text, targetLang = 'si', apiKey = process.env.GOOGLE_API_KEY) {
+    try {
+        const response = await axios.post(
+            'https://translation.googleapis.com/language/translate/v2',
+            { q: text, target: targetLang },
+            { params: { key: apiKey } }
+        );
+        return response.data.data.translations[0].translatedText;
+    } catch (error) {
+        console.error('⚠️ පරිවර්තන දෝෂය:', error.message);
+        return text; // දෝෂයක් වුවද මුල් පෙළ ආපසු යවයි
     }
 }
+
+// WhatsApp බොට් සඳහා ප්ලගින් ලෙස එක් කිරීම
+function setupTranslatePlugin(client) {
+    client.on('message', async (message) => {
+        if (message.body.startsWith('!tr')) {
+            const [, targetLang, ...textParts] = message.body.split(' ');
+            const text = textParts.join(' ');
+
+            if (!text || !targetLang) {
+                return message.reply('⚙️ භාවිතය: !tr <භාෂාව> <පෙළ>\nඋදා: !tr si Hello');
+            }
+
+            const translatedText = await translate(text, targetLang);
+            message.reply(`🌍 පරිවර්තනය (${targetLang}): ${translatedText}`);
+        }
+    });
+}
+
+module.exports = { translate, setupTranslatePlugin };
